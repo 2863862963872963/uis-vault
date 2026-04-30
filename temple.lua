@@ -1,6 +1,6 @@
 if getcustomasset then
-	local link = "https://github.com/4lpaca-pin/NeverLose/blob/main/assets/%s?raw=true";
-	local dir = 'NLAssets';
+	local link = "https://raw.githubusercontent.com/2863862963872963/uis-vault/main/UiPics/assets/%s";
+	local dir = 'AscHub/Images';
 
 	if not isfolder(dir) then
 		makefolder(dir);
@@ -13,9 +13,15 @@ if getcustomasset then
 			writefile(dir..'/'..'logo.png' , byte);
 			task.wait();
 		end;
+	end);
 
-		if isfile(dir..'/'..'logo.png') then
-			NeverLose.GlobalLogo = getcustomasset(dir..'/'..'logo.png')
+	pcall(function()
+		if not isfile(dir..'/'..'logo2.png') then
+			local byte = game:HttpGet(string.format(link,'logo2.png'));
+
+			writefile(dir..'/'..'logo2.png' , byte);
+			task.wait();
 		end;
 	end);
-end
+
+end;
