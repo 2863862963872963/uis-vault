@@ -4111,6 +4111,20 @@ local function NormalizeNamedData(NameOrData, Icon)
     return Data
 end
 
+function Library:AddSection(NameOrData, Icon)
+    -- Auto-creates a hidden internal tab the first time AddSection is called on the Window
+    if not self._AutoPage then
+        local Data = { Name = "Main", Icon = "" }
+        if self.CreateTab then
+            self._AutoPage = self:CreateTab(Data)
+        else
+            self._AutoPage = self:Page(Data)
+        end
+    end
+
+    return self._AutoPage:AddSection(NameOrData, Icon)
+end
+
 function Library:AddTab(NameOrData, Icon)
     local Data = NormalizeNamedData(NameOrData, Icon)
     Data.Icon = self:ResolveIcon(Data.Icon or Data.icon)
@@ -4134,6 +4148,143 @@ function Library.Pages:AddSection(NameOrData, Icon)
 
     return self:Section(Data)
 end
+
+function Library.Sections:AddTab(NameOrData, Icon)
+    local Data = type(NameOrData) == "table" and NameOrData or { Name = NameOrData, Icon = Icon }
+    local Name = Data.Name or Data.name or "Tab"
+
+    -- First call: build tab bar + host INSIDE Items["Content"]
+    -- (Content has UIListLayout + AutomaticSize.Y — that's the only thing that drives section height)
+    if not self._SectionTabsInit then
+        self._SectionTabsInit  = true
+        self._SectionSubTabs   = {}
+        self._ActiveSectionTab = nil
+
+        -- Horizontal row of tab buttons
+        self._SectionTabBar = Instances:Create("Frame", {
+            Parent          = self.Items["Content"].Instance,
+            Name            = "\0",
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Size            = UDim2New(1, 0, 0, 24),
+            LayoutOrder     = 0,
+        })
+
+        Instances:Create("UIListLayout", {
+            Parent            = self._SectionTabBar.Instance,
+            Name              = "\0",
+            FillDirection     = Enum.FillDirection.Horizontal,
+            Padding           = UDimNew(0, 4),
+            SortOrder         = Enum.SortOrder.LayoutOrder,
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+        })
+
+        -- Host frame: only the active sub-tab's content is reparented here
+        self._SectionTabHost = Instances:Create("Frame", {
+            Parent          = self.Items["Content"].Instance,
+            Name            = "\0",
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Size            = UDim2New(1, 0, 0, 0),
+            AutomaticSize   = Enum.AutomaticSize.Y,
+            LayoutOrder     = 1,
+        })
+    end
+
+    -- Tab button
+    local TabButton = Instances:Create("TextButton", {
+        Parent           = self._SectionTabBar.Instance,
+        Name             = "\0",
+        FontFace         = Library.Font,
+        Text             = Name,
+        TextColor3       = Library.Theme["Text"],
+        TextTransparency = 0.5,
+        BackgroundColor3 = Library.Theme["Element"],
+        BorderSizePixel  = 0,
+        AutomaticSize    = Enum.AutomaticSize.X,
+        Size             = UDim2New(0, 0, 1, 0),
+        AutoButtonColor  = false,
+        TextSize         = 14,
+    }):AddToTheme({ BackgroundColor3 = "Element", TextColor3 = "Text" })
+
+    Instances:Create("UICorner", {
+        Parent       = TabButton.Instance,
+        Name         = "\0",
+        CornerRadius = UDimNew(0, 4),
+    })
+
+    Instances:Create("UIPadding", {
+        Parent       = TabButton.Instance,
+        Name         = "\0",
+        PaddingLeft  = UDimNew(0, 8),
+        PaddingRight = UDimNew(0, 8),
+    })
+
+    local TabStroke = Instances:Create("UIStroke", {
+        Parent          = TabButton.Instance,
+        Name            = "\0",
+        Color           = Library.Theme["Accent"],
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Transparency    = 1,
+    }):AddToTheme({ Color = "Accent" })
+
+    -- Sub-tab content frame starts in UnusedHolder (reparented when activated)
+    local SubContent = Instances:Create("Frame", {
+        Parent          = Library.UnusedHolder.Instance,
+        Name            = "\0",
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Size            = UDim2New(1, 0, 0, 0),
+        AutomaticSize   = Enum.AutomaticSize.Y,
+    })
+
+    -- No extra UIPadding here — Content's padding already insets us on all sides
+    Instances:Create("UIListLayout", {
+        Parent    = SubContent.Instance,
+        Name      = "\0",
+        Padding   = UDimNew(0, 6),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    })
+
+    -- SubTab exposes the same API as a Section (Toggle, Slider, Button, etc.)
+    local SubTab = setmetatable({
+        Window     = self.Window,
+        Page       = self.Page,
+        Section    = self,
+        IsSettings = self.IsSettings,
+        Items      = { Content = SubContent },
+    }, Library.Sections)
+
+    local Entry = { Button = TabButton, Stroke = TabStroke, Content = SubContent, SubTab = SubTab }
+    table.insert(self._SectionSubTabs, Entry)
+
+    local function ActivateTab(Target)
+        self._ActiveSectionTab = Target
+        for _, E in self._SectionSubTabs do
+            local Active = E.SubTab == Target
+            -- Reparent like the rest of the library does (avoids AutomaticSize confusion)
+            E.Content.Instance.Parent = Active
+                and self._SectionTabHost.Instance
+                or  Library.UnusedHolder.Instance
+            E.Button:Tween(nil, { TextTransparency = Active and 0 or 0.5 })
+            E.Stroke:Tween(nil, { Transparency     = Active and 0 or 1  })
+        end
+    end
+
+    TabButton:Connect("MouseButton1Down", function()
+        ActivateTab(SubTab)
+    end)
+
+    -- Auto-activate the first tab added
+    if #self._SectionSubTabs == 1 then
+        ActivateTab(SubTab)
+    end
+
+    return SubTab
+end
+
+Library.Sections.CreateTab = Library.Sections.AddTab
+
 
 function Library.Sections:AddButton(NameOrData, Callback)
     if type(NameOrData) == "table" then
