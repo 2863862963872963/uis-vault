@@ -4,7 +4,16 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 local HttpService = game:GetService("HttpService") 
-local hui = gethui() or game:GetService("CoreGui")
+
+
+local hui = function()
+	if RunService:IsStudio() then
+		return game:GetService("Players").LocalPlayer.PlayerGui or game:GetService("CoreGui")
+	else
+		return gethui()
+	end
+end
+
 
 local Library = {
 	Connections = {},
