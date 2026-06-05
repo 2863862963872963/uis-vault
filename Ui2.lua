@@ -1,4 +1,3 @@
-
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
@@ -7,7 +6,9 @@ local Mouse = LocalPlayer:GetMouse()
 local HttpService = game:GetService("HttpService") 
 
 local Library = {
-	Connections = {}
+	Connections = {},
+	MobileMode = UserInputService.TouchEnabled,
+	Notifications = {}
 } 
 
 local function Create(Name, Properties, Children)
@@ -21,32 +22,30 @@ local function Create(Name, Properties, Children)
 	return Object
 end
 
-
 local function AddConnection(Signal, Function)
-	if (not Library:IsRunning()) then return end
+	if (not Library.GUI or not Library.GUI.Parent) then return end
 	local Connection = Signal:Connect(Function)
 	table.insert(Library.Connections, Connection)
 	return Connection
 end
 
+-- Fixed draggable for mobile
 local function MakeDraggable(frame)
-	local gui = frame
-
-	local dragging
-	local dragInput
-	local dragStart
-	local startPos
+	local dragging = false
+	local dragInput = nil
+	local dragStart = nil
+	local startPos = nil
 
 	local function update(input)
 		local delta = input.Position - dragStart
-		gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 	end
 
-	gui.InputBegan:Connect(function(input)
+	frame.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			dragging = true
 			dragStart = input.Position
-			startPos = gui.Position
+			startPos = frame.Position
 
 			input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
@@ -56,7 +55,7 @@ local function MakeDraggable(frame)
 		end
 	end)
 
-	gui.InputChanged:Connect(function(input)
+	frame.InputChanged:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
 			dragInput = input
 		end
@@ -69,16 +68,16 @@ local function MakeDraggable(frame)
 	end)
 end
 
-
 local function Round(Number, Factor)
 	local Result = math.floor(Number/Factor + (math.sign(Number) * 0.5)) * Factor
 	if Result < 0 then Result = Result + Factor end
 	return Result
 end
 
-
-local WhitelistedMouse = {Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2,Enum.UserInputType.MouseButton3}
-local BlacklistedKeys = {Enum.KeyCode.Unknown,Enum.KeyCode.W,Enum.KeyCode.A,Enum.KeyCode.S,Enum.KeyCode.D,Enum.KeyCode.Up,Enum.KeyCode.Left,Enum.KeyCode.Down,Enum.KeyCode.Right,Enum.KeyCode.Slash,Enum.KeyCode.Tab,Enum.KeyCode.Backspace,Enum.KeyCode.Escape}
+local WhitelistedMouse = {Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3}
+local BlacklistedKeys = {Enum.KeyCode.Unknown, Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D, 
+	Enum.KeyCode.Up, Enum.KeyCode.Left, Enum.KeyCode.Down, Enum.KeyCode.Right, Enum.KeyCode.Slash, 
+	Enum.KeyCode.Tab, Enum.KeyCode.Backspace, Enum.KeyCode.Escape}
 
 local function CheckKey(Table, Key)
 	for _, v in next, Table do
@@ -86,10 +85,18 @@ local function CheckKey(Table, Key)
 			return true
 		end
 	end
+	return false
 end
 
+-- Clean up old GUI
 pcall(function()
-	if Library.GUI then Library.GUI:Destroy() end
+	if Library.GUI then 
+		for _, conn in ipairs(Library.Connections) do
+			pcall(function() conn:Disconnect() end)
+		end
+		Library.Connections = {}
+		Library.GUI:Destroy() 
+	end
 end)
 
 local GUI = Create("ScreenGui", {
@@ -99,144 +106,167 @@ local GUI = Create("ScreenGui", {
 Library.GUI = GUI
 Library.FirstTabs = {}
 Library.NotificationHolder = Create("Frame", {
-		Name = "NotificationSection",
-		Parent = Library.GUI,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-		BackgroundTransparency = 1.000,
-		BorderColor3 = Color3.fromRGB(0, 0, 0),
-		BorderSizePixel = 0,
-		Position = UDim2.new(0.919387758, 0, 0.5, 0),
-		Size = UDim2.new(0.25, 0, 1, 0)
-	})
+	Name = "NotificationSection",
+	Parent = Library.GUI,
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+	BackgroundTransparency = 1.000,
+	BorderColor3 = Color3.fromRGB(0, 0, 0),
+	BorderSizePixel = 0,
+	Position = UDim2.new(0.919387758, 0, 0.5, 0),
+	Size = UDim2.new(0.25, 0, 1, 0)
+})
+
+-- Fixed notification system
 function Library.AddNotification(configs)
 	configs = configs or {}
 	configs.Title = configs.Title or "Notification"
 	configs.Content = configs.Content or "notif"
-	configs.AutoClose = configs.Content or false
+	configs.AutoClose = configs.AutoClose or true  -- Fixed: was using Content as boolean
 	configs.AutoCloseDelay = configs.AutoCloseDelay or 5
 
 	local NotificationSection = Library.NotificationHolder
-		Create("UIListLayout", {
-			HorizontalAlignment = Enum.HorizontalAlignment.Center,
-			SortOrder = Enum.SortOrder.LayoutOrder,
-			VerticalAlignment = Enum.VerticalAlignment.Bottom,
-			FillDirection = Enum.FillDirection.Vertical,
-			Padding = UDim.new(0, 20),
-			Parent = NotificationSection
-		})
-		Create("UIPadding", {
-			PaddingBottom = UDim.new(0,20),
-			PaddingTop = UDim.new(0,20),
+
+	-- Clear existing layout to avoid duplicates
+	for _, child in ipairs(NotificationSection:GetChildren()) do
+		if child:IsA("UIListLayout") or child:IsA("UIPadding") then
+			child:Destroy()
+		end
+	end
+
+	Create("UIListLayout", {
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Bottom,
+		FillDirection = Enum.FillDirection.Vertical,
+		Padding = UDim.new(0, 20),
 		Parent = NotificationSection
-		})
-		local Notification = Create("Frame", {
-			Name = "MacNotification",
-			BackgroundColor3 = Color3.fromRGB(12, 12, 12),
-			BackgroundTransparency = 0.150,
-			BorderColor3 = Color3.fromRGB(0, 0, 0),
+	})
+	Create("UIPadding", {
+		PaddingBottom = UDim.new(0,20),
+		PaddingTop = UDim.new(0,20),
+		Parent = NotificationSection
+	})
+
+	local Notification = Create("Frame", {
+		Name = "MacNotification",
+		BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+		BackgroundTransparency = 0.150,
+		BorderColor3 = Color3.fromRGB(0, 0, 0),
+		BorderSizePixel = 0,
+		Position = UDim2.new(-1.68405139, 0, 0.446932018, 0),
+		Size = UDim2.new(0, 240, 0, 65),
+		Parent = NotificationSection
+	}, {
+		Create("UICorner", {
+			Name = "MacCorner",
+			CornerRadius = UDim.new(0,4)
+		}),
+		Create("UIStroke", {
+			Name = "MacUIStroke",
+			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			Color = Color3.fromRGB(30, 30, 30),
+			Thickness = 1.25
+		}),
+		Create("Frame", {
+			Name = "DropShadowHolder",
+			BackgroundTransparency = 1.000,
 			BorderSizePixel = 0,
-			Position = UDim2.new(-1.68405139, 0, 0.446932018, 0),
-			Size = UDim2.new(0, 240, 0, 65),
-			Parent = NotificationSection
+			Size = UDim2.new(1, 0, 1, 0),
+			ZIndex = 0
+		}, {
+			Create("ImageLabel", {
+				Name = "DropShadow",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundTransparency = 1.000,
+				BorderSizePixel = 0,
+				Position = UDim2.new(0.5, 0, 0.5, 0),
+				Size = UDim2.new(1, 47, 1, 47),
+				ZIndex = 0,
+				Image = "rbxassetid://6014261993",
+				ImageColor3 = Color3.fromRGB(0, 0, 0),
+				ImageTransparency = 0.500,
+				ScaleType = Enum.ScaleType.Slice,
+				SliceCenter = Rect.new(49, 49, 450, 450)
+			})
+		}),
+		Create("TextButton", {
+			Name = "CloseNotificationButton",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundColor3 = Color3.fromRGB(255, 90, 82),
+			BorderColor3 = Color3.fromRGB(255, 255, 255),
+			BorderSizePixel = 0,
+			Position = UDim2.new(0.00999999978, 0, 0, 0),
+			Size = UDim2.new(0, 12, 0, 12),
+			AutoButtonColor = false,
+			Font = Enum.Font.SourceSans,
+			Text = "",
+			TextColor3 = Color3.fromRGB(0, 0, 0),
+			TextSize = 1.000,
+			BackgroundTransparency = 1
 		}, {
 			Create("UICorner", {
-				Name = "MacCorner",
-				CornerRadius = UDim.new(0,4)
+				CornerRadius = UDim.new(1,0)
 			}),
-			Create("UIStroke", {
-				Name = "MacUIStroke",
-				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-				Color = Color3.fromRGB(30, 30, 30),
-				Thickness = 1.25
-			}),
-			Create("Frame", {
-				Name = "DropShadowHolder",
-				BackgroundTransparency = 1.000,
-				BorderSizePixel = 0,
-				Size = UDim2.new(1, 0, 1, 0),
-				ZIndex = 0
-			}, {
-				Create("ImageLabel", {
-					Name = "DropShadow",
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					BackgroundTransparency = 1.000,
-					BorderSizePixel = 0,
-					Position = UDim2.new(0.5, 0, 0.5, 0),
-					Size = UDim2.new(1, 47, 1, 47),
-					ZIndex = 0,
-					Image = "rbxassetid://6014261993",
-					ImageColor3 = Color3.fromRGB(0, 0, 0),
-					ImageTransparency = 0.500,
-					ScaleType = Enum.ScaleType.Slice,
-					SliceCenter = Rect.new(49, 49, 450, 450)
-				})
-			}),
-			Create("TextButton", {
-				Name = "CloseNotificationButton",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundColor3 = Color3.fromRGB(255, 90, 82),
-				BorderColor3 = Color3.fromRGB(255, 255, 255),
-				BorderSizePixel = 0,
-				Position = UDim2.new(0.00999999978, 0, 0, 0),
-				Size = UDim2.new(0, 12, 0, 12),
-				AutoButtonColor = false,
-				Font = Enum.Font.SourceSans,
-				Text = "",
-				TextColor3 = Color3.fromRGB(0, 0, 0),
-				TextSize = 1.000,
-				BackgroundTransparency = 1
-			}, {
-				Create("UICorner", {
-					CornerRadius = UDim.new(1,0)
-				}),
-			}),
-			Create("TextLabel", {
-				Name = "NotificationTitle",
-				BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-				BackgroundTransparency = 1.000,
-				BorderColor3 = Color3.fromRGB(0, 0, 0),
-				BorderSizePixel = 0,
-				Position = UDim2.new(0, 0, 0, 20),
-				Size = UDim2.new(0, 240, 0, 0),
-				FontFace = Font.new("rbxassetid://12187365977"),
-				Text = configs.Title,
-				TextColor3 = Color3.fromRGB(255, 255, 255),
-				TextSize = 17.000,
-				TextXAlignment = Enum.TextXAlignment.Left
-			}, {
-				Create("UIPadding", {
-					PaddingBottom = UDim.new(0,10),
-					PaddingTop = UDim.new(0,10),
-					PaddingLeft = UDim.new(0,15)
-				})
-			}),
-			Create("TextLabel", {
-				Name = "NotificationContentText",
-				BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-				BackgroundTransparency = 1.000,
-				BorderColor3 = Color3.fromRGB(0, 0, 0),
-				BorderSizePixel = 0,
-				Position = UDim2.new(0, 0, 0, 40),
-				Size = UDim2.new(0, 216, 0, 0),
-				FontFace = Font.new("rbxassetid://12187365977"),
-				Text = configs.Content,
-				TextColor3 = Color3.fromRGB(170, 170, 170),
-				TextSize = 14.000,
-				TextStrokeColor3 = Color3.fromRGB(170, 170, 170),
-				TextWrapped = true,
-				TextXAlignment = Enum.TextXAlignment.Left
-			}, {
-				Create("UIPadding", {
-					PaddingBottom = UDim.new(0,10),
-					PaddingTop = UDim.new(0,10),
-					PaddingLeft = UDim.new(0,15)
-				})
+		}),
+		Create("TextLabel", {
+			Name = "NotificationTitle",
+			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+			BackgroundTransparency = 1.000,
+			BorderColor3 = Color3.fromRGB(0, 0, 0),
+			BorderSizePixel = 0,
+			Position = UDim2.new(0, 0, 0, 20),
+			Size = UDim2.new(0, 240, 0, 0),
+			FontFace = Font.new("rbxassetid://12187365977"),
+			Text = configs.Title,
+			TextColor3 = Color3.fromRGB(255, 255, 255),
+			TextSize = 17.000,
+			TextXAlignment = Enum.TextXAlignment.Left
+		}, {
+			Create("UIPadding", {
+				PaddingBottom = UDim.new(0,10),
+				PaddingTop = UDim.new(0,10),
+				PaddingLeft = UDim.new(0,15)
 			})
-
+		}),
+		Create("TextLabel", {
+			Name = "NotificationContentText",
+			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+			BackgroundTransparency = 1.000,
+			BorderColor3 = Color3.fromRGB(0, 0, 0),
+			BorderSizePixel = 0,
+			Position = UDim2.new(0, 0, 0, 40),
+			Size = UDim2.new(0, 216, 0, 0),
+			FontFace = Font.new("rbxassetid://12187365977"),
+			Text = configs.Content,
+			TextColor3 = Color3.fromRGB(170, 170, 170),
+			TextSize = 14.000,
+			TextStrokeColor3 = Color3.fromRGB(170, 170, 170),
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left
+		}, {
+			Create("UIPadding", {
+				PaddingBottom = UDim.new(0,10),
+				PaddingTop = UDim.new(0,10),
+				PaddingLeft = UDim.new(0,15)
+			})
 		})
+	})
 
-
+	-- Fixed animation cleanup
+	local function DestroyNotification()
+		pcall(function()
+			TweenService:Create(Notification.CloseNotificationButton, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1}):Play()
+			TweenService:Create(Notification.DropShadowHolder, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1}):Play()
+			TweenService:Create(Notification, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1}):Play()
+			TweenService:Create(Notification.NotificationTitle, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 1}):Play()
+			TweenService:Create(Notification.NotificationContentText, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 1}):Play()
+			TweenService:Create(Notification.MacUIStroke, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Thickness = 0}):Play()
+			TweenService:Create(Notification.DropShadowHolder.DropShadow, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {ImageTransparency = 1}):Play()
+		end)
+		task.wait(0.125)
+		pcall(function() Notification:Destroy() end)
+	end
 
 	Notification.MouseEnter:Connect(function()
 		TweenService:Create(Notification.CloseNotificationButton, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.125}):Play()
@@ -245,17 +275,13 @@ function Library.AddNotification(configs)
 		TweenService:Create(Notification.CloseNotificationButton, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1}):Play()
 	end)
 
-	Notification.CloseNotificationButton.MouseButton1Click:Connect(function()
-		TweenService:Create(Notification.CloseNotificationButton, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1}):Play()
-		TweenService:Create(Notification.DropShadowHolder, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1}):Play()
-		TweenService:Create(Notification, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1}):Play()
-		TweenService:Create(Notification.NotificationTitle, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 1}):Play()
-		TweenService:Create(Notification.NotificationContentText, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 1}):Play()
-		TweenService:Create(Notification.MacUIStroke, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Thickness = 0}):Play()
-		TweenService:Create(Notification.DropShadowHolder.DropShadow, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {ImageTransparency = 1}):Play()
-		wait(0.125)
-		Notification:Destroy()
-	end)
+	Notification.CloseNotificationButton.MouseButton1Click:Connect(DestroyNotification)
+
+	-- Auto close (fixed)
+	if configs.AutoClose then
+		task.wait(configs.AutoCloseDelay)
+		pcall(DestroyNotification)
+	end
 end
 
 function Library.Load(configs)
@@ -368,19 +394,14 @@ function Library.Load(configs)
 		Create("ScrollingFrame", {
 			Name = "tabButtonsFrame",
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-
 			CanvasSize = UDim2.new(),
 			ScrollBarImageColor3 = Color3.fromRGB(0, 0, 0),
-
 			ScrollBarImageTransparency = 1,
 			Active = true,
-
 			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 			BackgroundTransparency = 1,
-
 			BorderColor3 = Color3.fromRGB(0, 0, 0),
 			BorderSizePixel = 0,
-
 			Position = UDim2.fromOffset(0, 120),
 			Size = UDim2.fromOffset(191, 250),
 		}, {
@@ -438,7 +459,6 @@ function Library.Load(configs)
 			BorderColor3 = Color3.fromRGB(0, 0, 0),
 			BorderSizePixel = 0,
 			Size = UDim2.fromOffset(191, 50),
-
 		}, {
 			Create("TextButton", {
 				Name = "Red",
@@ -495,7 +515,7 @@ function Library.Load(configs)
 		Library.GUI:Destroy()
 	end)
 	MakeDraggable(mainFrame)
-	
+
 	return {AddTab = function(TabName, FirstTab)
 		local TabsButton = Create("TextButton", {
 			Name = "TabsButton",
@@ -520,7 +540,6 @@ function Library.Load(configs)
 				Color = Color3.fromRGB(30, 30, 30),
 				Thickness = 1.25,
 				Transparency = 1
-
 			}),
 			Create("TextLabel", {
 				Name = "TabLabel",
@@ -627,24 +646,26 @@ function Library.Load(configs)
 			TweenService:Create(TabsButton.TabLabel, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextColor3 = Color3.fromRGB(255,255,255)}):Play()
 			TweenService:Create(TabsButton.TabsButtonUIStroke, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0}):Play()
 		end
+
 		TabsButton.MouseButton1Click:Connect(function()
 			for _,TabsFrames in pairs(mainFrame:GetChildren()) do
 				if TabsFrames:IsA("Frame") and TabsFrames.Name == "SectionsHolders" then
 					TabsFrames.Visible = false
-					SectionHolders.Visible = true
 				end
 			end
+			SectionHolders.Visible = true
+
 			for _,Buttons in pairs(mainFrame.tabButtonsFrame:GetChildren()) do
 				if Buttons:IsA("TextButton") then
 					TweenService:Create(Buttons, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1}):Play()
 					TweenService:Create(Buttons.TabLabel, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextColor3 = Color3.fromRGB(170, 170, 170)}):Play()
 					TweenService:Create(Buttons.TabsButtonUIStroke, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 1}):Play()
 				end
-
-				TweenService:Create(TabsButton, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0}):Play()
-				TweenService:Create(TabsButton.TabLabel, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextColor3 = Color3.fromRGB(255,255,255)}):Play()
-				TweenService:Create(TabsButton.TabsButtonUIStroke, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0}):Play()
 			end
+
+			TweenService:Create(TabsButton, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0}):Play()
+			TweenService:Create(TabsButton.TabLabel, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextColor3 = Color3.fromRGB(255,255,255)}):Play()
+			TweenService:Create(TabsButton.TabsButtonUIStroke, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0}):Play()
 		end)
 
 		return {AddSection =  function(Name, Location)
@@ -761,6 +782,14 @@ function Library.Load(configs)
 					Toggle.MouseButton1Click:Connect(function()
 						configs:Set(not configs.Value)
 					end)
+
+					-- Fixed: Added touch support
+					if Library.MobileMode then
+						Toggle.TouchTap:Connect(function()
+							configs:Set(not configs.Value)
+						end)
+					end
+
 					function configs:Set(Value)
 						self.Value = Value
 						TweenService:Create(Toggle.ToggleStatus, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = self.Value and 0 or 1}):Play()
@@ -771,6 +800,7 @@ function Library.Load(configs)
 					configs:Set(configs.Default)
 					return configs
 				end,
+
 				AddButton = function(configs)
 					configs.Name = configs.Name or "Button"
 					configs.Callback = configs.Callback or function() end
@@ -816,13 +846,20 @@ function Library.Load(configs)
 							PaddingLeft = UDim.new(0, 15)
 						})
 					})
-					Button.MouseButton1Click:Connect(function()
+
+					local function animateAndCallback()
 						configs.Callback()
 						TweenService:Create(Button.ButtonText, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextColor3 = Color3.fromRGB(170,170,170)}):Play()
-						wait(.125)
+						task.wait(.125)
 						TweenService:Create(Button.ButtonText, TweenInfo.new(.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextColor3 = Color3.fromRGB(255,255,255)}):Play()
-					end)
+					end
+
+					Button.MouseButton1Click:Connect(animateAndCallback)
+					if Library.MobileMode then
+						Button.TouchTap:Connect(animateAndCallback)
+					end
 				end,
+
 				AddBind = function(configs)
 					configs.Name = configs.Name or "Keybind"
 					configs.Identifier = configs.Identifier or "Keybind"
@@ -830,7 +867,7 @@ function Library.Load(configs)
 					configs.Hold = configs.Hold or false
 					configs.Default = configs.Default or Enum.KeyCode.Unknown
 
-					local Bind = {Value, Binding = false, Type = "Bind"}
+					local Bind = {Value = configs.Default, Binding = false, Type = "Bind"}
 					local Holding = false
 
 					local KeyBind = Create("TextButton", {
@@ -888,54 +925,54 @@ function Library.Load(configs)
 						}),
 					})
 
-					KeyBind.InputEnded:Connect(function(Input)
-						if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-							if Bind.Binding then return end
+					-- Fixed binding logic
+					KeyBind.MouseButton1Click:Connect(function()
+						if Bind.Binding then 
+							Bind.Binding = false
+							KeyBind.KeyBindValueText.Text = Bind.Value.Name or Bind.Value
+						else
 							Bind.Binding = true
 							KeyBind.KeyBindValueText.Text = "..."
 						end
 					end)
 
-					UserInputService.InputBegan:Connect(function(Input)
+					AddConnection(UserInputService.InputBegan, function(Input)
 						if UserInputService:GetFocusedTextBox() then return end
-						if (Input.KeyCode.Name == Bind.Value or Input.UserInputType.Name == Bind.Value) and not Bind.Binding then
-							if configs.Hold then
-								Holding = true
-								configs.Callback(Holding)
-							else
-								configs.Callback()
-							end
-						elseif Bind.Binding then
+
+						if Bind.Binding then
 							local Key
-							pcall(function()
-								if not CheckKey(BlacklistedKeys, Input.KeyCode) then
-									Key = Input.KeyCode
+							if not CheckKey(BlacklistedKeys, Input.KeyCode) and Input.KeyCode ~= Enum.KeyCode.Unknown then
+								Key = Input.KeyCode
+							elseif CheckKey(WhitelistedMouse, Input.UserInputType) then
+								Key = Input.UserInputType
+							end
+							if Key then
+								Bind:Set(Key)
+							end
+						else
+							if (Input.KeyCode == Bind.Value or Input.UserInputType == Bind.Value) and Bind.Value and Bind.Value ~= Enum.KeyCode.Unknown then
+								if configs.Hold then
+									Holding = true
+									configs.Callback(Holding)
+								else
+									configs.Callback()
 								end
-							end)
-							pcall(function()
-								if CheckKey(WhitelistedMouse, Input.UserInputType) and not Key then
-									Key = Input.UserInputType
-								end
-							end)
-							Key = Key or Bind.Value
-							Bind:Set(Key)
+							end
 						end
 					end)
 
-					UserInputService.InputEnded:Connect(function(Input)
-						if Input.KeyCode.Name == Bind.Value or Input.UserInputType.Name == Bind.Value then
-							if configs.Hold and Holding then
-								Holding = false
-								configs.Callback(Holding)
-							end
+					AddConnection(UserInputService.InputEnded, function(Input)
+						if configs.Hold and Holding and (Input.KeyCode == Bind.Value or Input.UserInputType == Bind.Value) then
+							Holding = false
+							configs.Callback(Holding)
 						end
 					end)
 
 					function Bind:Set(Key)
 						Bind.Binding = false
 						Bind.Value = Key or Bind.Value
-						Bind.Value = Bind.Value.Name or Bind.Value
-						KeyBind.KeyBindValueText.Text = Bind.Value
+						local displayName = Bind.Value.Name or tostring(Bind.Value)
+						KeyBind.KeyBindValueText.Text = displayName
 					end
 
 					Bind:Set(configs.Default)
@@ -943,7 +980,6 @@ function Library.Load(configs)
 				end,
 
 				AddSlider = function(configs)
-
 					configs = configs or {}
 					configs.Name = configs.Name or "Slider"
 					configs.Identifier = configs.Identifier or "Slider"
@@ -952,8 +988,9 @@ function Library.Load(configs)
 					configs.Increment = configs.Increment or 1
 					configs.Default = configs.Default or 10
 					configs.Callback = configs.Callback or function() end
-					configs.Value = configs.Value or 0
+					configs.Value = configs.Default or 0
 					configs.Dragging = false
+
 					local Slider = Create("Frame", {
 						Name = configs.Identifier,
 						BackgroundColor3 = Color3.fromRGB(18, 18, 18),
@@ -992,7 +1029,7 @@ function Library.Load(configs)
 						Create("TextLabel", {
 							Name = "SliderNumber",
 							FontFace = Font.new("rbxassetid://12187365977"),
-							Text = configs.Value,
+							Text = tostring(configs.Value),
 							TextColor3 = Color3.fromRGB(255, 255, 255),
 							TextSize = 16,
 							TextXAlignment = Enum.TextXAlignment.Right,
@@ -1048,25 +1085,37 @@ function Library.Load(configs)
 								}),
 							}),
 						}),
-
 					})
 
+					-- Fixed slider dragging for both mouse and touch
+					local function startDrag()
+						configs.Dragging = true
+					end
+
+					local function endDrag()
+						configs.Dragging = false
+					end
+
 					Slider.SliderBar.SliderDot.InputBegan:Connect(function(Input)
-						if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-							configs.Dragging = true
+						if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+							startDrag()
 						end
 					end)
 
 					Slider.SliderBar.SliderDot.InputEnded:Connect(function(Input)
-						if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-							configs.Dragging = false
+						if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+							endDrag()
 						end
 					end)
 
-					UserInputService.InputChanged:Connect(function(Input)
-						if configs.Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
-							local SizeScale = math.clamp((Input.Position.X - Slider.SliderBar.AbsolutePosition.X) / Slider.SliderBar.AbsoluteSize.X, 0, 1)
-							configs:Set(configs.Min + ((configs.Max - configs.Min) * SizeScale))
+					AddConnection(UserInputService.InputChanged, function(Input)
+						if configs.Dragging and (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) then
+							local barPos = Slider.SliderBar.AbsolutePosition.X
+							local barSize = Slider.SliderBar.AbsoluteSize.X
+							local mouseX = Input.Position.X
+							local percent = math.clamp((mouseX - barPos) / barSize, 0, 1)
+							local newValue = configs.Min + ((configs.Max - configs.Min) * percent)
+							configs:Set(newValue)
 						end
 					end)
 
@@ -1075,17 +1124,185 @@ function Library.Load(configs)
 						Slider.SliderNumber.Text = tostring(self.Value)
 
 						local newPosition = UDim2.new(
-							(self.Value - configs.Min) / (configs.Max - configs.Min),0, Slider.SliderBar.SliderDot.Position.Y.Scale, Slider.SliderBar.SliderDot.Position.Y.Offset)
+							(self.Value - configs.Min) / (configs.Max - configs.Min), 0, 
+							Slider.SliderBar.SliderDot.Position.Y.Scale, Slider.SliderBar.SliderDot.Position.Y.Offset
+						)
 						TweenService:Create(Slider.SliderBar.SliderDot, TweenInfo.new(.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = newPosition}):Play()
-
 						return configs.Callback(configs.Value)
 					end
 
 					configs:Set(configs.Default)
-
+					return configs
 				end,
+
 				AddDropdown = function(configs)
-				
+					configs = configs or {}
+					configs.Name = configs.Name or "Dropdown"
+					configs.Identifier = configs.Identifier or "Dropdown"
+					configs.Options = configs.Options or {"Option 1", "Option 2"}
+					configs.Default = configs.Default or configs.Options[1]
+					configs.Callback = configs.Callback or function() end
+
+					local value = configs.Default
+					local open = false
+					local dropdownFrame = nil
+
+					local DropdownButton = Create("TextButton", {
+						Name = configs.Identifier,
+						FontFace = Font.new("rbxassetid://12187365977"),
+						Text = "",
+						TextColor3 = Color3.fromRGB(255, 255, 255),
+						TextSize = 14,
+						AutoButtonColor = false,
+						BackgroundColor3 = Color3.fromRGB(18, 18, 18),
+						BorderColor3 = Color3.fromRGB(0, 0, 0),
+						BorderSizePixel = 0,
+						Position = UDim2.fromScale(0.025, 0),
+						Size = UDim2.new(0.95, 0, 0, 40),
+						Parent = Section
+					}, {
+						Create("UICorner", {CornerRadius = UDim.new(0, 4)}),
+						Create("UIStroke", {
+							ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+							Color = Color3.fromRGB(30, 30, 30),
+							Thickness = 1.25
+						}),
+						Create("TextLabel", {
+							Name = "DropdownText",
+							FontFace = Font.new("rbxassetid://12187365977"),
+							Text = configs.Name,
+							TextColor3 = Color3.fromRGB(255, 255, 255),
+							TextSize = 16,
+							TextXAlignment = Enum.TextXAlignment.Left,
+							BackgroundColor3 = Color3.fromRGB(12, 12, 12),
+							BackgroundTransparency = 1,
+							Size = UDim2.fromScale(0.7, 1)
+						}),
+						Create("UIPadding", {PaddingLeft = UDim.new(0, 15)}),
+						Create("TextLabel", {
+							Name = "DropdownValue",
+							FontFace = Font.new("rbxassetid://12187365977"),
+							Text = value,
+							TextColor3 = Color3.fromRGB(130, 130, 130),
+							TextSize = 14,
+							TextXAlignment = Enum.TextXAlignment.Right,
+							AnchorPoint = Vector2.new(1, 0.5),
+							Position = UDim2.new(0.95, 0, 0.5, 0),
+							Size = UDim2.new(0, 100, 1, 0)
+						})
+					})
+
+					-- Create dropdown menu (initially hidden)
+					local function createDropdownMenu()
+						if dropdownFrame then return end
+
+						dropdownFrame = Create("Frame", {
+							Name = "DropdownMenu",
+							Parent = Section,
+							BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+							BorderColor3 = Color3.fromRGB(0, 0, 0),
+							BorderSizePixel = 0,
+							Position = UDim2.new(0.025, 0, 0, 45),
+							Size = UDim2.new(0.95, 0, 0, 0),
+							ClipsDescendants = true,
+							Visible = false,
+							ZIndex = 2
+						}, {
+							Create("UICorner", {CornerRadius = UDim.new(0, 4)}),
+							Create("UIStroke", {
+								Color = Color3.fromRGB(30, 30, 30),
+								Thickness = 1.25
+							}),
+							Create("UIListLayout", {
+								Padding = UDim.new(0, 2),
+								HorizontalAlignment = Enum.HorizontalAlignment.Center
+							})
+						})
+
+						-- Add options
+						for _, option in ipairs(configs.Options) do
+							local optionButton = Create("TextButton", {
+								Name = option,
+								Text = option,
+								TextColor3 = Color3.fromRGB(200, 200, 200),
+								TextSize = 14,
+								FontFace = Font.new("rbxassetid://12187365977"),
+								BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+								BackgroundTransparency = 0,
+								BorderSizePixel = 0,
+								Size = UDim2.new(1, 0, 0, 35),
+								AutoButtonColor = false,
+								Parent = dropdownFrame
+							}, {
+								Create("UICorner", {CornerRadius = UDim.new(0, 4)}),
+								Create("UIPadding", {PaddingLeft = UDim.new(0, 15)})
+							})
+
+							optionButton.MouseEnter:Connect(function()
+								TweenService:Create(optionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(40, 40, 40)}):Play()
+							end)
+
+							optionButton.MouseLeave:Connect(function()
+								TweenService:Create(optionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(25, 25, 25)}):Play()
+							end)
+
+							optionButton.MouseButton1Click:Connect(function()
+								value = option
+								DropdownButton.DropdownValue.Text = value
+								configs.Callback(value)
+								closeDropdown()
+							end)
+						end
+					end
+
+					local function openDropdown()
+						createDropdownMenu()
+						local optionCount = #configs.Options
+						local height = math.min(optionCount * 37, 200)
+						dropdownFrame.Visible = true
+						dropdownFrame:TweenSize(UDim2.new(0.95, 0, 0, height), "Out", "Quad", 0.2, true)
+						open = true
+					end
+
+					local function closeDropdown()
+						if dropdownFrame then
+							dropdownFrame:TweenSize(UDim2.new(0.95, 0, 0, 0), "Out", "Quad", 0.2, true)
+							task.wait(0.2)
+							dropdownFrame.Visible = false
+						end
+						open = false
+					end
+
+					DropdownButton.MouseButton1Click:Connect(function()
+						if open then
+							closeDropdown()
+						else
+							openDropdown()
+						end
+					end)
+
+					-- Close dropdown when clicking outside
+					UserInputService.InputBegan:Connect(function(input)
+						if open and input.UserInputType == Enum.UserInputType.MouseButton1 then
+							local mousePos = UserInputService:GetMouseLocation()
+							if dropdownFrame and dropdownFrame.AbsoluteSize.Y > 0 then
+								local framePos = dropdownFrame.AbsolutePosition
+								if not (mousePos.X >= framePos.X and mousePos.X <= framePos.X + dropdownFrame.AbsoluteSize.X and
+									mousePos.Y >= framePos.Y and mousePos.Y <= framePos.Y + dropdownFrame.AbsoluteSize.Y) then
+									closeDropdown()
+								end
+							end
+						end
+					end)
+
+					return {
+						Get = function() return value end,
+						Set = function(newValue)
+							value = newValue
+							DropdownButton.DropdownValue.Text = value
+							configs.Callback(value)
+						end
+					}
 				end
 			}
 		end}
