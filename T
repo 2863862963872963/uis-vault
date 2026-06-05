@@ -1,0 +1,111 @@
+-- Example.lua for the .hrzn UI Library
+-- Paste this into a new script (LocalScript) in StarterPlayerScripts or similar
+
+local Library = loadstring(game:HttpGet("YOUR_LIBRARY_URL_HERE"))() -- Replace with actual loadstring if needed
+-- Or if the library is already in the script above, just use the Library variable
+
+local UI = Library.Load({
+    Title = "Example UI"
+})
+
+-- Create first tab
+local Tab1 = UI.AddTab("Main", true) -- true makes it the first/default tab
+
+-- Left section
+local LeftSection = Tab1.AddSection("Toggles & Buttons", "Left")
+
+LeftSection.AddToggle({
+    Name = "Auto Farm",
+    Default = false,
+    Callback = function(state)
+        print("Auto Farm:", state)
+    end
+})
+
+LeftSection.AddToggle({
+    Name = "God Mode",
+    Default = true,
+    Callback = function(state)
+        print("God Mode:", state)
+    end
+})
+
+LeftSection.AddButton({
+    Name = "Teleport to Spawn",
+    Callback = function()
+        print("Teleported to spawn!")
+        -- game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(0, 5, 0)
+    end
+})
+
+LeftSection.AddButton({
+    Name = "Rejoin Server",
+    Callback = function()
+        print("Rejoining...")
+        -- game:GetService("TeleportService"):Teleport(game.PlaceId)
+    end
+})
+
+-- Right section
+local RightSection = Tab1.AddSection("Sliders & Binds", "Right")
+
+RightSection.AddSlider({
+    Name = "WalkSpeed",
+    Min = 16,
+    Max = 200,
+    Increment = 1,
+    Default = 16,
+    Callback = function(value)
+        -- game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
+        print("WalkSpeed set to:", value)
+    end
+})
+
+RightSection.AddSlider({
+    Name = "Jump Power",
+    Min = 50,
+    Max = 300,
+    Increment = 5,
+    Default = 50,
+    Callback = function(value)
+        print("JumpPower set to:", value)
+    end
+})
+
+RightSection.AddBind({
+    Name = "Toggle Menu",
+    Default = Enum.KeyCode.RightShift,
+    Callback = function()
+        print("Menu toggled!")
+    end
+})
+
+RightSection.AddBind({
+    Name = "Kill All (Hold)",
+    Hold = true,
+    Callback = function(holding)
+        print("Kill All holding:", holding)
+    end
+})
+
+-- Second tab
+local Tab2 = UI.AddTab("Misc", false)
+
+local MiscLeft = Tab2.AddSection("Miscellaneous", "Left")
+
+MiscLeft.AddButton({
+    Name = "Destroy UI",
+    Callback = function()
+        Library.GUI:Destroy()
+    end
+})
+
+-- Notification example
+Library.AddNotification({
+    Title = "Welcome!",
+    Content = "UI loaded successfully. Enjoy!",
+    AutoClose = true,
+    AutoCloseDelay = 4
+})
+
+print("Example UI loaded successfully!")
