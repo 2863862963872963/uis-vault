@@ -1091,3 +1091,5 @@ function Library.Load(configs)
 		end}
 	end}
 end
+
+return Library
