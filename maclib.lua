@@ -35,7 +35,7 @@ local assets = {
 	togglerHead = "rbxassetid://18772309008",
 	buttonImage = "rbxassetid://10709791437",
 	searchIcon = "rbxassetid://86737463322606",
-	colorWheel = "rbxassetid://2849458409",
+	colorWheel = "rbxassetid://111272856233556",
 	colorTarget = "rbxassetid://73265255323268",
 	grid = "rbxassetid://121484455191370",
 	globe = "rbxassetid://108952102602834",
@@ -879,6 +879,28 @@ function MacLib:Window(Settings)
 	currentTab.Position = UDim2.fromScale(0, 0.5)
 	currentTab.Size = UDim2.fromScale(0.9, 0)
 	currentTab.Parent = elements
+	
+	local currentDescTab = Instance.new("TextLabel")
+	currentDescTab.Name = "CurrentDescTab"
+	currentDescTab.FontFace = Font.new(assets.interFont)
+	currentDescTab.RichText = true
+	currentDescTab.Text = ""
+	currentDescTab.RichText = true
+	currentDescTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+	currentDescTab.TextSize = 10
+	currentDescTab.TextTransparency = 0.7
+	currentDescTab.TextTruncate = Enum.TextTruncate.SplitWord
+	currentDescTab.TextXAlignment = Enum.TextXAlignment.Left
+	currentDescTab.TextYAlignment = Enum.TextYAlignment.Top
+	currentDescTab.AnchorPoint = Vector2.new(0, 0.5)
+	currentDescTab.AutomaticSize = Enum.AutomaticSize.Y
+	currentDescTab.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	currentDescTab.BackgroundTransparency = 1
+	currentDescTab.BorderColor3 = Color3.fromRGB(0, 0, 0)
+	currentDescTab.BorderSizePixel = 0
+	currentDescTab.Position = UDim2.fromScale(0, 0.7)
+	currentDescTab.Size = UDim2.fromScale(0.9, 0)
+	currentDescTab.Parent = elements
 
 	elements.Parent = topbar
 
@@ -1462,6 +1484,7 @@ function MacLib:Window(Settings)
 			tabSwitcherName.Size = UDim2.fromScale(1, 0)
 			tabSwitcherName.Parent = tabSwitcher
 			tabSwitcherName.LayoutOrder = 1
+			
 
 			local tabSwitcherUIPadding = Instance.new("UIPadding")
 			tabSwitcherUIPadding.Name = "TabSwitcherUIPadding"
@@ -1974,21 +1997,17 @@ function MacLib:Window(Settings)
 						headerTitle.Size = UDim2.fromOffset(0, 20)
 						headerTitle.Parent = headerBar
 
-						local closeBtn = Instance.new("TextButton")
+						local closeBtn = Instance.new("ImageButton")
 						closeBtn.Name = "CloseButton"
-						closeBtn.FontFace = Font.new(assets.interFont, Enum.FontWeight.Medium)
-						closeBtn.Text = "✕"
-						closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-						closeBtn.TextSize = 13
-						closeBtn.TextTransparency = 0.5
+						closeBtn.Image = "rbxassetid://116396312853810"
+						closeBtn.ImageColor3 = Color3.fromRGB(255, 255, 255)
+						closeBtn.ImageTransparency = 0.5
 						closeBtn.AutoButtonColor = false
 						closeBtn.AnchorPoint = Vector2.new(1, 0.5)
-						closeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 						closeBtn.BackgroundTransparency = 1
-						closeBtn.BorderColor3 = Color3.fromRGB(0, 0, 0)
 						closeBtn.BorderSizePixel = 0
 						closeBtn.Position = UDim2.fromScale(1, 0.5)
-						closeBtn.AutomaticSize = Enum.AutomaticSize.XY
+						closeBtn.Size = UDim2.fromOffset(16, 16) -- adjust to fit your header
 						closeBtn.Parent = headerBar
 
 						headerBar.Parent = prompt
@@ -4975,6 +4994,7 @@ function MacLib:Window(Settings)
 				tabs[tabSwitcher].tabContent.Parent = content
 				currentTabInstance = tabs[tabSwitcher].tabContent
 				currentTab.Text = Settings.Name
+				currentDescTab.Text = Settings.Description or ""
 			end
 
 			tabSwitcher.MouseButton1Click:Connect(function()
@@ -4983,6 +5003,23 @@ function MacLib:Window(Settings)
 
 			function TabFunctions:Select()
 				SelectCurrentTab()
+			end
+			
+			function TabFunctions:InsertUiSection(Side)
+				local UiSection = TabFunctions:Section({ Side = "Left" })
+				
+				UiSection:Slider({
+					Name = "Set DPI",
+					Default = 100,
+					Minimum = 50,
+					Maximum = 100,
+					DisplayMethod = "Percent",
+					Callback = function(Value)
+						WindowFunctions:SetScale(Value / 100)
+					end,
+				}, "DPISlider")
+				
+				return UiSection
 			end
 
 			function TabFunctions:InsertConfigSection(Side)
@@ -5613,6 +5650,190 @@ function MacLib:Window(Settings)
 		return windowState
 	end
 
+	-- UiButtonToggle: a floating draggable ImageButton that toggles the window.
+	-- Config.MobileOnly  : Boolean  -- only show on touch devices
+	-- Config.Image       : String   -- asset id / getcustomasset path for the button icon
+	-- Config.Shape       : String   -- "Circle", "Square", "Rounded" (default "Circle")
+	-- Config.Size        : number   -- pixel size of the button (default 52)
+	-- Config.Position    : UDim2    -- initial position (default bottom-right area)
+	-- Config.Default     : Boolean  -- initial visible state (default true)
+	function WindowFunctions:UiButtonToggle(Config)
+		local UiButtonToggleFunctions = {}
+		Config = Config or {}
+
+		-- MobileOnly guard
+		if Config.MobileOnly and not UserInputService.TouchEnabled then
+			-- Return a no-op object so callers don't error
+			function UiButtonToggleFunctions:SetVisibility() end
+			function UiButtonToggleFunctions:GetVisibility() return false end
+			function UiButtonToggleFunctions:UpdateImage() end
+			function UiButtonToggleFunctions:UpdateShape() end
+			function UiButtonToggleFunctions:Destroy() end
+			return UiButtonToggleFunctions
+		end
+
+		local btnSize   = Config.Size     or 52
+		local initPos   = Config.Position or UDim2.new(1, -(btnSize + 16), 1, -(btnSize + 16))
+		local shape     = (Config.Shape   or "Circle"):lower()
+		local imageId   = Config.Image    or "rbxassetid://79541605299928"
+
+		-- The button lives directly on macLib (ScreenGui) so it's always on top
+		-- and independent of base visibility.
+		local btn = Instance.new("ImageButton")
+		btn.Name              = "UiButtonToggle"
+		btn.Image             = imageId
+		btn.ImageTransparency = 0.15
+		btn.AnchorPoint       = Vector2.new(1, 1)
+		btn.BackgroundColor3  = Color3.fromRGB(20, 20, 20)
+		btn.BackgroundTransparency = 0.2
+		btn.BorderSizePixel   = 0
+		btn.Position          = initPos
+		btn.Size              = UDim2.fromOffset(btnSize, btnSize)
+		btn.ZIndex            = 10
+		btn.AutoButtonColor   = false
+		btn.Parent            = macLib
+
+		-- UIStroke for a subtle border
+		local btnStroke = Instance.new("UIStroke")
+		btnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		btnStroke.Color           = Color3.fromRGB(255, 255, 255)
+		btnStroke.Transparency    = 0.85
+		btnStroke.Parent          = btn
+
+		-- Shape via UICorner
+		local btnCorner = Instance.new("UICorner")
+		local function ApplyShape(s)
+			s = (s or "circle"):lower()
+			if s == "circle" then
+				btnCorner.CornerRadius = UDim.new(1, 0)
+			elseif s == "square" then
+				btnCorner.CornerRadius = UDim.new(0, 0)
+			else -- "rounded" or anything else
+				btnCorner.CornerRadius = UDim.new(0, 10)
+			end
+		end
+		ApplyShape(shape)
+		btnCorner.Parent = btn
+
+		-- Hover tween
+		local function SetHoverState(hovering)
+			Tween(btn, TweenInfo.new(0.15, Enum.EasingStyle.Sine), {
+				ImageTransparency = hovering and 0 or 0.15,
+				BackgroundTransparency = hovering and 0.05 or 0.2,
+			}):Play()
+		end
+
+		btn.MouseEnter:Connect(function() SetHoverState(true)  end)
+		btn.MouseLeave:Connect(function() SetHoverState(false) end)
+
+		-- Drag logic (mouse + touch)
+		local draggingBtn  = false
+		local btnDragStart = nil
+		local btnStartPos  = nil
+
+		local function OnBtnDragStart(input)
+			draggingBtn  = true
+			btnDragStart = input.Position
+			btnStartPos  = btn.Position
+		end
+
+		local function OnBtnDragUpdate(input)
+			if not draggingBtn then return end
+			local delta = input.Position - btnDragStart
+			local screenSize = workspace.CurrentCamera.ViewportSize
+
+			local startPixelX = btnStartPos.X.Scale * screenSize.X + btnStartPos.X.Offset
+			local startPixelY = btnStartPos.Y.Scale * screenSize.Y + btnStartPos.Y.Offset
+
+			local rawX = startPixelX + delta.X
+			local rawY = startPixelY + delta.Y
+
+
+			local clampedX = math.clamp(rawX, btnSize, screenSize.X)
+			local clampedY = math.clamp(rawY, btnSize, screenSize.Y)
+
+			btn.Position = UDim2.fromOffset(clampedX, clampedY)
+		end
+
+		btn.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch then
+				OnBtnDragStart(input)
+			end
+		end)
+
+		UserInputService.InputChanged:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseMovement
+				or input.UserInputType == Enum.UserInputType.Touch then
+				OnBtnDragUpdate(input)
+			end
+		end)
+
+		-- Distinguish tap vs drag on release
+		local DRAG_THRESHOLD = 6
+		UserInputService.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch then
+				if draggingBtn and btnDragStart then
+					local delta = input.Position - btnDragStart
+					local dist  = math.sqrt(delta.X^2 + delta.Y^2)
+					if dist < DRAG_THRESHOLD then
+						WindowFunctions:SetState(not WindowFunctions:GetState())
+					end
+				end
+				draggingBtn = false
+			end
+		end)
+
+		-- Scale-pop animation on click
+		local btnUIScale = Instance.new("UIScale")
+		btnUIScale.Parent = btn
+
+		local function ClickPop()
+			local pop = Tween(btnUIScale, TweenInfo.new(0.07, Enum.EasingStyle.Sine), { Scale = 0.85 })
+			local restore = Tween(btnUIScale, TweenInfo.new(0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+			pop:Play()
+			pop.Completed:Connect(function() restore:Play() end)
+		end
+
+		btn.MouseButton1Click:Connect(ClickPop)
+
+		-- Visibility (respects Config.Default)
+		local btnVisible = Config.Default ~= false
+		btn.Visible = btnVisible
+
+		function UiButtonToggleFunctions:SetVisibility(State)
+			btnVisible  = State
+			btn.Visible = State
+		end
+
+		function UiButtonToggleFunctions:GetVisibility()
+			return btnVisible
+		end
+
+		function UiButtonToggleFunctions:UpdateImage(NewImage)
+			btn.Image = NewImage
+		end
+
+		function UiButtonToggleFunctions:UpdateShape(NewShape)
+			ApplyShape(NewShape)
+		end
+
+		function UiButtonToggleFunctions:UpdateSize(NewSize)
+			btn.Size = UDim2.fromOffset(NewSize, NewSize)
+		end
+
+		function UiButtonToggleFunctions:UpdatePosition(NewPosition)
+			btn.Position = NewPosition
+		end
+
+		function UiButtonToggleFunctions:Destroy()
+			btn:Destroy()
+		end
+
+		return UiButtonToggleFunctions
+	end
+
 	local onUnloadCallback
 
 	function WindowFunctions:Unload()
@@ -5968,7 +6189,7 @@ end
 function MacLib:Demo()
 	local Window = MacLib:Window({
 		Title = "Maclib Demo",
-		Subtitle = "This is a subtitle.",
+		Subtitle = "Full Feature Showcase",
 		Size = UDim2.fromOffset(868, 650),
 		DragStyle = 1,
 		DisabledWindowControls = {},
@@ -5977,332 +6198,321 @@ function MacLib:Demo()
 		AcrylicBlur = true,
 	})
 
-	local globalSettings = {
-		UIBlurToggle = Window:GlobalSetting({
-			Name = "UI Blur",
-			Default = Window:GetAcrylicBlurState(),
-			Callback = function(bool)
-				Window:SetAcrylicBlurState(bool)
-				Window:Notify({
-					Title = Window.Settings.Title,
-					Description = (bool and "Enabled" or "Disabled") .. " UI Blur",
-					Lifetime = 5
-				})
-			end,
-		}),
-		NotificationToggler = Window:GlobalSetting({
-			Name = "Notifications",
-			Default = Window:GetNotificationsState(),
-			Callback = function(bool)
-				Window:SetNotificationsState(bool)
-				Window:Notify({
-					Title = Window.Settings.Title,
-					Description = (bool and "Enabled" or "Disabled") .. " Notifications",
-					Lifetime = 5
-				})
-			end,
-		}),
-		ShowUserInfo = Window:GlobalSetting({
-			Name = "Show User Info",
-			Default = Window:GetUserInfoState(),
-			Callback = function(bool)
-				Window:SetUserInfoState(bool)
-				Window:Notify({
-					Title = Window.Settings.Title,
-					Description = (bool and "Showing" or "Redacted") .. " User Info",
-					Lifetime = 5
-				})
-			end,
-		})
-	}
+	Window:UiButtonToggle()
 
-	local tabGroups = {
-		TabGroup1 = Window:TabGroup()
-	}
 
-	local tabs = {
-		Main = tabGroups.TabGroup1:Tab({ Name = "Demo", Image = "rbxassetid://18821914323" }),
-		Settings = tabGroups.TabGroup1:Tab({ Name = "Settings", Image = "rbxassetid://10734950309" })
-	}
-
-	local sections = {
-		MainSection1 = tabs.Main:Section({ Side = "Left" }),
-		SingleSection = tabs.Main:Section({ Side = "Single" }),
-	}
-
-	sections.SingleSection:Header({
-		Name = "Single Section"
+	Window:GlobalSetting({
+		Name = "UI Blur",
+		Default = Window:GetAcrylicBlurState(),
+		Callback = function(bool)
+			Window:SetAcrylicBlurState(bool)
+			Window:Notify({ Title = "Settings", Description = (bool and "Enabled" or "Disabled") .. " UI Blur", Lifetime = 4 })
+		end,
 	})
 
-	sections.SingleSection:Button({
-		Name = "Full Width Button",
+	Window:GlobalSetting({
+		Name = "Notifications",
+		Default = Window:GetNotificationsState(),
+		Callback = function(bool)
+			Window:SetNotificationsState(bool)
+		end,
+	})
+
+	Window:GlobalSetting({
+		Name = "Show User Info",
+		Default = Window:GetUserInfoState(),
+		Callback = function(bool)
+			Window:SetUserInfoState(bool)
+			Window:Notify({ Title = "Settings", Description = (bool and "Showing" or "Redacted") .. " User Info", Lifetime = 4 })
+		end,
+	})
+
+
+	local TabGroup = Window:TabGroup()
+
+	local Tabs = {
+		Home     = TabGroup:Tab({ Name = "Home",     Description = "Overview and main features", Image = "rbxassetid://18821914323" }),
+		Controls = TabGroup:Tab({ Name = "Controls", Description = "Manage toggles and automation", Image = "rbxassetid://18821914323" }),
+		Visuals  = TabGroup:Tab({ Name = "Visuals",  Description = "Customize ESP and rendering",   Image = "rbxassetid://18821914323" }),
+		Settings = TabGroup:Tab({ Name = "Settings", Description = "Configure UI and save configs", Image = "rbxassetid://10734950309" }),
+	}
+
+
+	local HomeSection = Tabs.Home:Section({ Side = "Single" })
+
+	HomeSection:Header({ Name = "Welcome" })
+
+	HomeSection:Paragraph({
+		Header = "About",
+		Body   = "This is a full showcase of every MacLib component. Browse the tabs above to explore all available features."
+	})
+
+	HomeSection:Label({ Text = "Version: 1.0.0  •  Made with MacLib" })
+	HomeSection:SubLabel({ Text = "Right-click opens the keybind menu. Press RightControl to toggle the window." })
+
+	HomeSection:Divider()
+
+	HomeSection:Header({ Name = "Quick Actions" })
+
+	HomeSection:Button({
+		Name = "Send Notification",
 		Callback = function()
 			Window:Notify({
-				Title = Window.Settings.Title,
-				Description = "Clicked a full-width Single section button!"
+				Title       = "Maclib Demo",
+				Description = "This is a test notification!",
+				Lifetime    = 5,
 			})
 		end,
 	})
 
-	sections.SingleSection:Toggle({
-		Name = "Full Width Toggle",
-		Default = false,
-		Callback = function(value)
-			Window:Notify({
-				Title = Window.Settings.Title,
-				Description = (value and "Enabled " or "Disabled ") .. "Full Width Toggle"
-			})
-		end,
-	})
-
-	sections.MainSection1:Header({
-		Name = "Header #1"
-	})
-
-	sections.MainSection1:Button({
-		Name = "Button",
+	HomeSection:Button({
+		Name = "Open Dialog",
 		Callback = function()
 			Window:Dialog({
-				Title = Window.Settings.Title,
-				Description = "Lorem ipsum odor amet, consectetuer adipiscing elit. Eros vestibulum aliquet mattis, ex platea nunc.",
+				Title       = "Confirm Action",
+				Description = "Are you sure you want to proceed? This cannot be undone.",
 				Buttons = {
-					{
-						Name = "Confirm",
-						Callback = function()
-							print("Confirmed!")
-						end,
-					},
-					{
-						Name = "Cancel"
-					}
+					{ Name = "Confirm", Callback = function()
+						Window:Notify({ Title = "Dialog", Description = "You confirmed!", Lifetime = 3 })
+					end },
+					{ Name = "Cancel" }
 				}
 			})
 		end,
 	})
 
-	sections.MainSection1:Input({
-		Name = "Input",
-		Placeholder = "Input",
+
+	local LeftSection  = Tabs.Controls:Section({ Side = "Left"  })
+	local RightSection = Tabs.Controls:Section({ Side = "Right" })
+
+	LeftSection:Header({ Name = "Inputs" })
+
+	LeftSection:Input({
+		Name               = "Username",
+		Placeholder        = "Enter username...",
 		AcceptedCharacters = "All",
-		Callback = function(input)
-			Window:Notify({
-				Title = Window.Settings.Title,
-				Description = "Successfully set input to " .. input
-			})
+		Callback = function(value)
+			Window:Notify({ Title = "Input", Description = "Username set to: " .. value, Lifetime = 3 })
 		end,
-		onChanged = function(input)
-			print("Input is now " .. input)
+		onChanged = function(value)
+			print("Username changed:", value)
 		end,
-	}, "Input")
+	}, "UsernameInput")
 
-	sections.MainSection1:Slider({
-		Name = "Slider",
-		Default = 50,
-		Minimum = 0,
-		Maximum = 100,
+	LeftSection:Input({
+		Name               = "Numbers Only",
+		Placeholder        = "Enter a number...",
+		AcceptedCharacters = "Numbers",
+		Callback = function(value)
+			print("Number input:", value)
+		end,
+	}, "NumberInput")
+
+	LeftSection:Slider({
+		Name          = "Walk Speed",
+		Default       = 16,
+		Minimum       = 0,
+		Maximum       = 100,
+		DisplayMethod = "Value",
+		Precision     = 0,
+		Callback = function(value)
+			print("WalkSpeed:", value)
+		end,
+	}, "WalkSpeedSlider")
+
+	LeftSection:Slider({
+		Name          = "Opacity",
+		Default       = 50,
+		Minimum       = 0,
+		Maximum       = 100,
 		DisplayMethod = "Percent",
-		Precision = 0,
-		Callback = function(Value)
-			print("Changed to ".. Value)
-		end
-	}, "Slider")
+		Precision     = 1,
+		Callback = function(value)
+			print("Opacity:", value)
+		end,
+	}, "OpacitySlider")
 
-	sections.MainSection1:Toggle({
-		Name = "Toggle",
+	LeftSection:Divider()
+
+	LeftSection:Header({ Name = "Toggles" })
+
+	LeftSection:Toggle({
+		Name    = "God Mode",
 		Default = false,
 		Callback = function(value)
-			Window:Notify({
-				Title = Window.Settings.Title,
-				Description = (value and "Enabled " or "Disabled ") .. "Toggle"
-			})
+			Window:Notify({ Title = "God Mode", Description = value and "Enabled" or "Disabled", Lifetime = 3 })
 		end,
-	}, "Toggle")
+	}, "GodMode")
 
-	local LinkedToggle = sections.MainSection1:Toggle({
-		Name = "Toggle with Link",
+	LeftSection:Toggle({
+		Name    = "Infinite Jump",
 		Default = false,
 		Callback = function(value)
-			Window:Notify({
-				Title = Window.Settings.Title,
-				Description = (value and "Enabled " or "Disabled ") .. "Toggle with Link"
-			})
+			Window:Notify({ Title = "Infinite Jump", Description = value and "Enabled" or "Disabled", Lifetime = 3 })
 		end,
-	}, "LinkedToggle")
+	}, "InfiniteJump")
 
-	local Link = LinkedToggle:Link()
-
-	Link:Header({ Name = "Linked Settings" })
-
-	Link:Toggle({
-		Name = "Sub Toggle",
+	local SpeedToggle = LeftSection:Toggle({
+		Name    = "Speed Boost",
 		Default = false,
 		Callback = function(value)
-			print("Sub Toggle:", value)
+			Window:Notify({ Title = "Speed Boost", Description = value and "Active" or "Inactive", Lifetime = 3 })
 		end,
-	})
+	}, "SpeedBoost")
 
-	Link:Slider({
-		Name = "Sub Slider",
-		Default = 50,
-		Minimum = 0,
-		Maximum = 100,
-		DisplayMethod = "Percent",
-		Precision = 0,
+	local SpeedLink = SpeedToggle:Link()
+
+	SpeedLink:Header({ Name = "Speed Settings" })
+
+	SpeedLink:Slider({
+		Name          = "Boost Amount",
+		Default       = 50,
+		Minimum       = 0,
+		Maximum       = 200,
+		DisplayMethod = "Value",
+		Precision     = 0,
 		Callback = function(value)
-			print("Sub Slider:", value)
+			print("Boost amount:", value)
 		end,
 	})
 
-	Link:Input({
-		Name = "Sub Input",
-		Placeholder = "Value",
-		AcceptedCharacters = "All",
-		Callback = function(input)
-			print("Sub Input:", input)
+	SpeedLink:Toggle({
+		Name    = "Smooth Acceleration",
+		Default = true,
+		Callback = function(value)
+			print("Smooth accel:", value)
 		end,
 	})
 
-	Link:Colorpicker({
-		Name = "Sub Colorpicker",
-		Default = Color3.fromRGB(100, 200, 255),
-		Callback = function(color)
-			print("Sub Color:", color)
+	RightSection:Header({ Name = "Dropdowns" })
+
+	local fruitOptions = { "Apple", "Banana", "Orange", "Grapes", "Pineapple", "Mango", "Strawberry", "Blueberry", "Watermelon", "Peach" }
+
+	local FruitDropdown = RightSection:Dropdown({
+		Name     = "Favourite Fruit",
+		Multi    = false,
+		Required = true,
+		Options  = fruitOptions,
+		Default  = 1,
+		Callback = function(value)
+			print("Selected fruit:", value)
+		end,
+	}, "FruitDropdown")
+
+	local MultiFruitDropdown = RightSection:Dropdown({
+		Name     = "Fruit Basket",
+		Search   = true,
+		Multi    = true,
+		Required = false,
+		Options  = fruitOptions,
+		Default  = { "Apple", "Mango" },
+		Callback = function(value)
+			local selected = {}
+			for v in next, value do table.insert(selected, v) end
+			print("Basket:", table.concat(selected, ", "))
+		end,
+	}, "MultiFruitDropdown")
+
+	RightSection:Button({
+		Name = "Reset Dropdowns",
+		Callback = function()
+			FruitDropdown:UpdateSelection("Apple")
+			MultiFruitDropdown:UpdateSelection({ "Apple", "Mango" })
+			Window:Notify({ Title = "Dropdowns", Description = "Selections reset.", Lifetime = 3 })
 		end,
 	})
 
-	sections.MainSection1:Keybind({
-		Name = "Keybind",
+	RightSection:Divider()
+
+	RightSection:Header({ Name = "Keybind" })
+
+	RightSection:Keybind({
+		Name      = "Action Keybind",
 		Blacklist = false,
-		Callback = function(binded)
-			Window:Notify({
-				Title = "Demo Window",
-				Description = "Pressed keybind - "..tostring(binded.Name),
-				Lifetime = 3
-			})
+		Callback = function(bound)
+			Window:Notify({ Title = "Keybind", Description = "Triggered: " .. tostring(bound.Name), Lifetime = 3 })
 		end,
 		onBinded = function(bind)
-			Window:Notify({
-				Title = "Demo Window",
-				Description = "Successfully Binded Keybind to - "..tostring(bind.Name),
-				Lifetime = 3
-			})
+			Window:Notify({ Title = "Keybind", Description = "Bound to: " .. tostring(bind.Name), Lifetime = 3 })
 		end,
-	}, "Keybind")
+	}, "ActionKeybind")
 
-	sections.MainSection1:Colorpicker({
-		Name = "Colorpicker",
-		Default = Color3.fromRGB(0, 255, 255),
+
+	local VisLeftSection  = Tabs.Visuals:Section({ Side = "Left"  })
+	local VisRightSection = Tabs.Visuals:Section({ Side = "Right" })
+
+	VisLeftSection:Header({ Name = "Colors" })
+
+	VisLeftSection:Colorpicker({
+		Name     = "Primary Color",
+		Default  = Color3.fromRGB(0, 170, 255),
 		Callback = function(color)
-			print("Color: ", color)
+			print("Primary color:", color)
 		end,
-	}, "Colorpicker")
+	}, "PrimaryColor")
 
-	local alphaColorPicker = sections.MainSection1:Colorpicker({
-		Name = "Transparency Colorpicker",
-		Default = Color3.fromRGB(255,0,0),
-		Alpha = 0,
+	VisLeftSection:Colorpicker({
+		Name     = "Accent Color",
+		Default  = Color3.fromRGB(255, 80, 120),
+		Callback = function(color)
+			print("Accent color:", color)
+		end,
+	}, "AccentColor")
+
+	local AlphaPicker = VisLeftSection:Colorpicker({
+		Name     = "Fog Color + Alpha",
+		Default  = Color3.fromRGB(180, 210, 255),
+		Alpha    = 0.5,
 		Callback = function(color, alpha)
-			print("Color: ", color, " Alpha: ", alpha)
+			print("Fog color:", color, "Alpha:", alpha)
 		end,
-	}, "TransparencyColorpicker")
+	}, "FogColor")
 
-	local rainbowActive
+	VisLeftSection:Divider()
+
+	VisLeftSection:Header({ Name = "Rainbow" })
+
 	local rainbowConnection
 	local hue = 0
 
-	sections.MainSection1:Toggle({
-		Name = "Rainbow",
+	VisLeftSection:Toggle({
+		Name    = "Rainbow Mode",
 		Default = false,
 		Callback = function(value)
-			rainbowActive = value
-
-			if rainbowActive then
-				rainbowConnection = game:GetService("RunService").RenderStepped:Connect(function(deltaTime)
-					hue = (hue + deltaTime * 0.1) % 1
-					alphaColorPicker:SetColor(Color3.fromHSV(hue, 1, 1))
+			if value then
+				rainbowConnection = game:GetService("RunService").RenderStepped:Connect(function(dt)
+					hue = (hue + dt * 0.1) % 1
+					AlphaPicker:SetColor(Color3.fromHSV(hue, 1, 1))
 				end)
 			elseif rainbowConnection then
 				rainbowConnection:Disconnect()
 				rainbowConnection = nil
 			end
 		end,
-	}, "RainbowToggle")
+	}, "RainbowMode")
 
-	local optionTable = {
-		"Apple",
-		"Banana",
-		"Orange",
-		"Grapes",
-		"Pineapple",
-		"Mango",
-		"Strawberry",
-		"Blueberry",
-		"Watermelon",
-		"Peach"
-	}
+	VisRightSection:Header({ Name = "Info" })
 
-	local Dropdown = sections.MainSection1:Dropdown({
-		Name = "Dropdown",
-		Multi = false,
-		Required = true,
-		Options = optionTable,
-		Default = 1,
-		Callback = function(Value)
-			print("Dropdown changed: ".. Value)
-		end,
-	}, "Dropdown")
-
-	local MultiDropdown = sections.MainSection1:Dropdown({
-		Name = "Multi Dropdown",
-		Search = true,
-		Multi = true,
-		Required = false,
-		Options = optionTable,
-		Default = {"Apple", "Orange"},
-		Callback = function(Value)
-			local Values = {}
-			for Value, State in next, Value do
-				table.insert(Values, Value)
-			end
-			print("Mutlidropdown changed:", table.concat(Values, ", "))
-		end,
-	}, "MultiDropdown")
-
-	sections.MainSection1:Button({
-		Name = "Update Selection",
-		Callback = function()
-			Dropdown:UpdateSelection("Grapes")
-			MultiDropdown:UpdateSelection({"Banana", "Pineapple"})
-		end,
+	VisRightSection:Paragraph({
+		Header = "Color Tips",
+		Body   = "Use the Alpha slider on the Fog Color picker to control transparency. Enable Rainbow Mode to cycle hue automatically."
 	})
 
-	sections.MainSection1:Divider()
+	VisRightSection:Label({ Text = "Primary color applies to main UI elements." })
+	VisRightSection:SubLabel({ Text = "Accent color is used for highlights and borders." })
 
-	sections.MainSection1:Header({
-		Text = "Header #2"
-	})
 
-	sections.MainSection1:Paragraph({
-		Header = "Paragraph",
-		Body = "Paragraph body. Lorem ipsum odor amet, consectetuer adipiscing elit. Morbi tempus netus aliquet per velit est gravida."
-	})
+	Tabs.Settings:InsertUiSection("Left")
+	Tabs.Settings:InsertConfigSection("Left")
 
-	sections.MainSection1:Label({
-		Text = "Label. Lorem ipsum odor amet, consectetuer adipiscing elit."
-	})
-
-	sections.MainSection1:SubLabel({
-		Text = "Sub-Label. Lorem ipsum odor amet, consectetuer adipiscing elit."
-	})
 
 	MacLib:SetFolder("Maclib")
-	tabs.Settings:InsertConfigSection("Left")
 
 	Window.onUnloaded(function()
-		print("Unloaded!")
+		print("Window unloaded!")
 	end)
 
-	tabs.Main:Select()
+	Tabs.Home:Select()
 	MacLib:LoadAutoLoadConfig()
 end
 
