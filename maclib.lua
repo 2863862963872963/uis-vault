@@ -1750,6 +1750,14 @@ function MacLib:Window(Settings)
 				sectionUIPadding.PaddingRight = UDim.new(0, 18)
 				sectionUIPadding.PaddingTop = UDim.new(0, 22)
 				sectionUIPadding.Parent = section
+				
+				function SectionFunctions:Clear()
+					for _, child in ipairs(section:GetChildren()) do
+						if child:IsA("Frame") then
+							child:Destroy()
+						end
+					end
+				end
 
 				function SectionFunctions:Button(Settings, Flag)
 					local ButtonFunctions = {Settings = Settings}
@@ -1845,6 +1853,9 @@ function MacLib:Window(Settings)
 					end
 					function ButtonFunctions:SetVisibility(State)
 						button.Visible = State
+					end
+					function ButtonFunctions:Remove()
+						button:Destroy()
 					end
 
 					if Flag then
@@ -2002,6 +2013,10 @@ function MacLib:Window(Settings)
 					end
 					function ToggleFunctions:SetVisibility(State)
 						toggle.Visible = State
+					end
+					function ToggleFunctions:Remove()
+						ToggleFunctions:UpdateState(false)
+						toggle:Destroy()
 					end
 
 					function ToggleFunctions:Link()
@@ -2534,6 +2549,9 @@ function MacLib:Window(Settings)
 					end
 					function SliderFunctions:GetValue()
 						return finalValue
+					end
+					function SliderFunctions:Remove()
+						slider:Destroy()
 					end
 
 					if Flag then
@@ -3402,6 +3420,9 @@ function MacLib:Window(Settings)
 					end
 					function DropdownFunctions:SetVisibility(State)
 						dropdown.Visible = State
+					end
+					function DropdownFunctions:Clear()
+						dropdown:Destroy()
 					end
 					function DropdownFunctions:UpdateSelection(newSelection)
 						if not newSelection then return end
@@ -4791,7 +4812,10 @@ function MacLib:Window(Settings)
 						colorC.Transparency = alpha
 						updateFromSettings()
 					end
-
+					
+					function ColorpickerFunctions:Remove()
+						colorpicker:Destroy()
+					end
 					if Flag then
 						MacLib.Options[Flag] = ColorpickerFunctions
 					end
@@ -4841,6 +4865,10 @@ function MacLib:Window(Settings)
 					headerText.Position = UDim2.new(0, headerIconSpace, 0, 0)
 					headerText.Size = UDim2.new(1, -headerIconSpace, 0, 0)
 					headerText.Parent = header
+					
+					function HeaderFunctions:Remove()
+						header:Destroy()
+					end
 
 					function HeaderFunctions:UpdateName(New)
 						headerText.Text = New
@@ -4911,6 +4939,9 @@ function MacLib:Window(Settings)
 					end
 					function LabelFunctions:SetVisibility(State)
 						label.Visible = State
+					end
+					function LabelFunctions:Remove()
+						label:Destroy()
 					end
 					
 					function LabelFunctions:Link()
@@ -5229,6 +5260,9 @@ function MacLib:Window(Settings)
 					function SubLabelFunctions:SetVisibility(State)
 						subLabel.Visible = State
 					end
+					function SubLabelFunctions:Remove()
+						subLabel:Destroy()
+					end
 
 					if Flag then
 						MacLib.Options[Flag] = SubLabelFunctions
@@ -5304,6 +5338,9 @@ function MacLib:Window(Settings)
 					end
 					function ParagraphFunctions:SetVisibility(State)
 						paragraph.Visible = State
+					end
+					function ParagraphFunctions:Remove()
+						paragraph:Destroy()
 					end
 
 					if Flag then
@@ -6836,6 +6873,7 @@ function MacLib:Demo()
 			print("Basket:", table.concat(selected, ", "))
 		end,
 	}, "MultiFruitDropdown")
+	
 
 	RightSection:Button({
 		Name = "Reset Dropdowns",
@@ -6861,6 +6899,7 @@ function MacLib:Demo()
 		end,
 	}, "ActionKeybind")
 
+	RightSection:Clear()
 
 	local VisLeftSection  = Tabs.Visuals:Section({ Side = "Left"  })
 	local VisRightSection = Tabs.Visuals:Section({ Side = "Right" })
