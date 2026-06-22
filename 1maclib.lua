@@ -6554,7 +6554,7 @@ function MacLib:Window(Settings)
 			return false, "Please select a config file."
 		end
 
-		local fullPath = MacLib.Folder .. "/settings/" .. Path .. ".json"
+		local fullPath = Path .. ".json"
 
 		local data = {
 			objects = {}
@@ -6583,7 +6583,7 @@ function MacLib:Window(Settings)
 			return false, "Please select a config file."
 		end
 
-		local file = MacLib.Folder .. "/settings/" .. Path .. ".json"
+		local file = Path .. ".json"
 		if not isfile(file) then return false, "Invalid file" end
 
 		local success, decoded = pcall(HttpService.JSONDecode, HttpService, readfile(file))
