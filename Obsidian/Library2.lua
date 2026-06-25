@@ -502,7 +502,13 @@ local Templates = {
 	Link = {
 		Mode = "Float",
 		Modes = { "Float", "Side" },
-		
+
+		Title = nil,
+		Side = "Right",
+		Width = 300,
+		Height = 380,
+		OutsideClickClose = false,
+
 		Callback = function() end,
 		ChangedCallback = function() end,
 		Changed = function() end,
@@ -2186,6 +2192,7 @@ local ResizeIcon = Library:GetIcon("move-diagonal-2")
 local KeyIcon = Library:GetIcon("key")
 local MoveIcon = Library:GetIcon("move")
 local FileQuestionMarkIcon = Library:GetIcon("file-question-mark")
+local CloseIcon = Library:GetIcon("x")
 
 function Library:SetIconModule(module: IconModule)
 	FetchIcons = true
@@ -2198,8 +2205,10 @@ function Library:SetIconModule(module: IconModule)
 	KeyIcon = Library:GetIcon("key")
 	MoveIcon = Library:GetIcon("move")
 	FileQuestionMarkIcon = Library:GetIcon("file-question-mark")
+	CloseIcon = Library:GetIcon("x")
 end
 
+local BaseGroupbox
 local BaseAddons = {}
 do
 	local Funcs = {}
@@ -3302,8 +3311,329 @@ do
 
 		return self
 	end
-	
-	
+
+
+
+	function Funcs:Link(Info)
+		Info = Library:Validate(Info, Templates.Link)
+
+		local Toggle = self
+		if Info.Mode == "Floating" then
+			Info.Mode = "Float"
+		end
+
+		local ToggleLabel = Toggle.TextLabel
+
+		local PanelRoot = Library.MainFrame or Library.ScreenGui
+		local Width = Info.Width
+		local Height = Info.Height
+		local Title = Info.Title or Toggle.Text
+
+		local PanelHolder
+		local PanelOverlay
+		local PanelContainer
+		local PanelList
+		local TitleLabel
+
+		local Opened = false
+		local Open
+		local Close
+
+		--// Link Icon (sits next to the toggle's label, opens the panel) \\--
+		local LinkButton = New("ImageButton", {
+			BackgroundTransparency = 1,
+			Image = "rbxassetid://106205298246017",
+			ImageColor3 = "FontColor",
+			Size = UDim2.fromOffset(16, 16),
+			Parent = ToggleLabel,
+		})
+
+		if Info.Mode == "Side" then
+			local PanelSide = Info.Side == "Left" and "Left" or "Right"
+
+			PanelHolder = New("Frame", {
+				BackgroundColor3 = "BackgroundColor",
+				Size = UDim2.new(0, Width, 1, 0),
+				ZIndex = 100,
+				Visible = false,
+				Parent = PanelRoot,
+			})
+			table.insert(
+				Library.Corners,
+				New("UICorner", {
+					CornerRadius = UDim.new(0, Library.CornerRadius or 6),
+					Parent = PanelHolder,
+				})
+			)
+			Library:AddOutline(PanelHolder)
+
+			TitleLabel = New("TextLabel", {
+				BackgroundTransparency = 1,
+				Position = UDim2.fromOffset(15, 10),
+				Size = UDim2.new(1, -40, 0, 20),
+				Text = Title,
+				TextSize = 16,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				ZIndex = 101,
+				Parent = PanelHolder,
+			})
+
+			local CloseButton = New("ImageButton", {
+				AnchorPoint = Vector2.new(1, 0),
+				BackgroundTransparency = 1,
+				Image = "rbxassetid://116396312853810",
+				ImageColor3 = "FontColor",
+				Position = UDim2.new(1, -10, 0, 10),
+				Size = UDim2.fromOffset(16, 16),
+				ZIndex = 101,
+				Parent = PanelHolder,
+			})
+
+			New("Frame", {
+				BackgroundColor3 = "OutlineColor",
+				BorderSizePixel = 0,
+				Position = UDim2.fromOffset(0, 36),
+				Size = UDim2.new(1, 0, 0, 1),
+				ZIndex = 101,
+				Parent = PanelHolder,
+			})
+
+			PanelContainer = New("ScrollingFrame", {
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Position = UDim2.fromOffset(0, 37),
+				Size = UDim2.new(1, 0, 1, -37),
+				CanvasSize = UDim2.new(0, 0, 0, 0),
+				ScrollBarThickness = 2,
+				ScrollBarImageColor3 = "OutlineColor",
+				ZIndex = 100,
+				Parent = PanelHolder,
+			})
+
+			PanelList = New("UIListLayout", {
+				Padding = UDim.new(0, 8),
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				Parent = PanelContainer,
+			})
+			New("UIPadding", {
+				PaddingBottom = UDim.new(0, 12),
+				PaddingLeft = UDim.new(0, 12),
+				PaddingRight = UDim.new(0, 12),
+				PaddingTop = UDim.new(0, 12),
+				Parent = PanelContainer,
+			})
+
+			local ClosedPos = PanelSide == "Left" and UDim2.new(0, -Width, 0, 0) or UDim2.new(1, 0, 0, 0)
+			local OpenPos = PanelSide == "Left" and UDim2.new(0, 0, 0, 0) or UDim2.new(1, -Width, 0, 0)
+			PanelHolder.Position = ClosedPos
+			PanelHolder.Visible = false
+
+			Open = function()
+				Opened = true
+				PanelHolder.Visible = true
+				TweenService:Create(PanelHolder, Library.TweenInfo, { Position = OpenPos }):Play()
+			end
+
+			Close = function()
+				Opened = false
+				TweenService:Create(PanelHolder, Library.TweenInfo, { Position = ClosedPos }):Play()
+				task.delay(Library.TweenInfo.Time, function()
+					if not Opened then
+						PanelHolder.Visible = false
+					end
+				end)
+			end
+
+			CloseButton.MouseButton1Click:Connect(function()
+				Close()
+			end)
+		else
+			PanelOverlay = New("TextButton", {
+				AutoButtonColor = false,
+				BackgroundColor3 = "DarkColor",
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1),
+				Text = "",
+				Active = false,
+				Visible = false,
+				ZIndex = 9000,
+				Parent = PanelRoot,
+			})
+
+			PanelHolder = New("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = "BackgroundColor",
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromOffset(Width, Height),
+				ZIndex = 9001,
+				Parent = PanelOverlay,
+			})
+			table.insert(
+				Library.Corners,
+				New("UICorner", {
+					CornerRadius = UDim.new(0, Library.CornerRadius or 6),
+					Parent = PanelHolder,
+				})
+			)
+			Library:AddOutline(PanelHolder)
+
+			local PanelScale = New("UIScale", {
+				Scale = 0.95,
+				Parent = PanelHolder,
+			})
+
+			TitleLabel = New("TextLabel", {
+				BackgroundTransparency = 1,
+				Position = UDim2.fromOffset(15, 10),
+				Size = UDim2.new(1, -40, 0, 20),
+				Text = Title,
+				TextSize = 16,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				ZIndex = 9002,
+				Parent = PanelHolder,
+			})
+
+			local CloseButton = New("ImageButton", {
+				AnchorPoint = Vector2.new(1, 0),
+				BackgroundTransparency = 1,
+				Image = "rbxassetid://116396312853810",
+				ImageColor3 = "FontColor",
+				Position = UDim2.new(1, -10, 0, 10),
+				Size = UDim2.fromOffset(16, 16),
+				ZIndex = 9002,
+				Parent = PanelHolder,
+			})
+
+			New("Frame", {
+				BackgroundColor3 = "OutlineColor",
+				BorderSizePixel = 0,
+				Position = UDim2.fromOffset(0, 36),
+				Size = UDim2.new(1, 0, 0, 1),
+				ZIndex = 9002,
+				Parent = PanelHolder,
+			})
+
+			PanelContainer = New("ScrollingFrame", {
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Position = UDim2.fromOffset(0, 37),
+				Size = UDim2.new(1, 0, 1, -37),
+				CanvasSize = UDim2.new(0, 0, 0, 0),
+				ScrollBarThickness = 2,
+				ScrollBarImageColor3 = "OutlineColor",
+				ZIndex = 9001,
+				Parent = PanelHolder,
+			})
+
+			PanelList = New("UIListLayout", {
+				Padding = UDim.new(0, 8),
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				Parent = PanelContainer,
+			})
+			New("UIPadding", {
+				PaddingBottom = UDim.new(0, 12),
+				PaddingLeft = UDim.new(0, 12),
+				PaddingRight = UDim.new(0, 12),
+				PaddingTop = UDim.new(0, 12),
+				Parent = PanelContainer,
+			})
+
+			PanelOverlay.Visible = false
+			PanelScale.Scale = 0.95
+
+			Open = function()
+				Opened = true
+				PanelOverlay.Visible = true
+				TweenService:Create(PanelOverlay, Library.TweenInfo, { BackgroundTransparency = 0.5 }):Play()
+				PanelScale.Scale = 0.95
+				TweenService:Create(PanelScale, Library.TweenInfo, { Scale = 1 }):Play()
+			end
+
+			Close = function()
+				Opened = false
+				TweenService:Create(PanelOverlay, Library.TweenInfo, { BackgroundTransparency = 1 }):Play()
+				TweenService:Create(PanelScale, Library.TweenInfo, { Scale = 0.95 }):Play()
+				task.delay(Library.TweenInfo.Time, function()
+					if not Opened then
+						PanelOverlay.Visible = false
+					end
+				end)
+			end
+
+			CloseButton.MouseButton1Click:Connect(function()
+				Close()
+			end)
+
+			PanelOverlay.MouseButton1Click:Connect(function()
+				if Info.OutsideClickClose then
+					Close()
+				end
+			end)
+		end
+
+		local LinkedPanel = {
+			Elements = {},
+			DependencyBoxes = {},
+			Container = PanelContainer,
+			Holder = PanelHolder,
+			Type = "LinkedPanel",
+			Mode = Info.Mode,
+		}
+
+		function LinkedPanel:Resize()
+			PanelContainer.CanvasSize = UDim2.fromOffset(0, PanelList.AbsoluteContentSize.Y + 24)
+		end
+
+		function LinkedPanel:SetTitle(NewTitle: string)
+			TitleLabel.Text = NewTitle
+		end
+
+		function LinkedPanel:IsOpened()
+			return Opened
+		end
+
+		function LinkedPanel:Show()
+			if not Opened then
+				Open()
+			end
+
+			Library:SafeCallback(Info.Callback, true)
+			Library:SafeCallback(Info.Changed, true)
+		end
+
+		function LinkedPanel:Hide()
+			if Opened then
+				Close()
+			end
+
+			Library:SafeCallback(Info.Callback, false)
+			Library:SafeCallback(Info.Changed, false)
+		end
+
+		function LinkedPanel:Toggle()
+			if Opened then
+				LinkedPanel:Hide()
+			else
+				LinkedPanel:Show()
+			end
+		end
+
+		PanelList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+			LinkedPanel:Resize()
+		end)
+
+		LinkButton.MouseButton1Click:Connect(function()
+			LinkedPanel:Toggle()
+		end)
+
+		setmetatable(LinkedPanel, BaseGroupbox)
+		LinkedPanel:Resize()
+
+		Toggle.LinkedPanel = LinkedPanel
+
+		return LinkedPanel
+	end
+
 
 	BaseAddons.__index = Funcs
 	BaseAddons.__namecall = function(_, Key, ...)
@@ -3311,7 +3641,7 @@ do
 	end
 end
 
-local BaseGroupbox = {}
+BaseGroupbox = {}
 do
 	local Funcs = {}
 
@@ -9966,6 +10296,7 @@ function Library:CreateWindow(WindowInfo)
 	end))
 
 	Library.Window = Window
+	Library.MainFrame = MainFrame
 	return Window
 end
 
