@@ -50,7 +50,6 @@ local Window = Library:CreateWindow({
 
 local Tabs = {
 	Main = Window:AddTab("Main", "user", "Main features"),
-	SpecialTab = Window:AddSpecialTab("Special Tab", "sparkle"),
 	Key = Window:AddKeyTab("Key System"),
 	Settings = Window:AddTab("Settings", "settings", "UI settings and configurations"),
 }
@@ -653,77 +652,6 @@ end)
 Library:OnUnload(function()
 	print("Unloaded!")
 end)
-
-local GroupBox = Tabs.SpecialTab:AddGroupbox("Groupbox", "apple")
-GroupBox:AddLabel("As you can see, in this tab the groupbox is fullsize!")
-GroupBox:AddLabel("Hi\nHi from second line\nHi from third line", true)
-
-GroupBox:AddToggle("EnableAudio", {
-    Text = "Enable Audio",
-    Default = false
-})
- 
-local AudioSettings = GroupBox:AddDependencyBox()
- 
-AudioSettings:AddSlider("Volume", {
-    Text = "Volume",
-    Default = 50,
-    Min = 0,
-    Max = 100,
-    Rounding = 0
-})
- 
-AudioSettings:SetupDependencies({
-    { Toggles.EnableAudio, true },
-})
-
-GroupBox:AddDivider()
-
-GroupBox:AddLabel("This is a video!")
-
-local MyEpicVideo = GroupBox:AddVideo("EpicVideo", {
-    Video = "rbxassetid://5608321996",
-	Height = 300,
-})
-
-local Playing = false
-
-GroupBox:AddButton("Play/Pause", function()
-    local Playing = not MyEpicVideo.Playing
-    MyEpicVideo:SetPlaying(Playing)
-end)
-
-GroupBox:AddToggle("IsThisTheEnd", {
-    Text = "Is this the end?",
-    Default = false
-})
- 
-local NoThisIsntTheEnd = GroupBox:AddDependencyGroupbox()
-
-NoThisIsntTheEnd:AddLabel("No, this isn't the end!")
-
-NoThisIsntTheEnd:AddButton("Click me, there's something special", function()
-	local Notification = Library:Notify({
-		Title = "Warning",
-		Description = "Your CPU is on fire. Your PC will explode in: 5",
-		Icon = "triangle-alert",
-		Steps = 5,
-	})
-	
-	for i = 1, 5 do
-		Notification:ChangeStep(i)
-		Notification:ChangeDescription("Your CPU is on fire. Your PC will explode in: " .. (5 - i))
-		task.wait(1)
-	end
-	
-	Notification:Destroy()
-	Instance.new("Explosion", Library.LocalPlayer.Character.HumanoidRootPart).Position = Library.LocalPlayer.Character.HumanoidRootPart.Position
-	Library.LocalPlayer.Character.Humanoid.Health:BreakJoints()
-end)
- 
-NoThisIsntTheEnd:SetupDependencies({
-    { Toggles.IsThisTheEnd, true },
-})
 
 Tabs.Key:AddLabel({
 	Text = "Key: Banana",
