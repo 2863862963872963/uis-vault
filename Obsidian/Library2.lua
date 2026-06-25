@@ -7541,12 +7541,14 @@ function Library:CreateWindow(WindowInfo)
 	function Window:AddTab(...)
 		local Name = nil
 		local Icon = nil
+		local IconBorder = nil
 		local Description = nil
 
 		if select("#", ...) == 1 and typeof(...) == "table" then
 			local Info = select(1, ...)
 			Name = Info.Name or "Tab"
 			Icon = Info.Icon
+			IconBorder = Info.IconBorder
 			Description = Info.Description or "No Description"
 		else
 			Name = select(1, ...) or "Tab"
