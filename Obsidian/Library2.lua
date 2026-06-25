@@ -6806,6 +6806,12 @@ function Library:CreateWindow(WindowInfo)
                 Size = WindowInfo.IconSize,
                 Parent = TitleHolder,
             })
+			if WindowInfo.IconCorner then
+				local corner = New("UICorner", {
+					CornerRadius = UDim.new(1, 0),
+					Parent = WindowIcon,
+				})
+			end
         else
             WindowIcon = New("TextLabel", {
                 BackgroundTransparency = 1,
