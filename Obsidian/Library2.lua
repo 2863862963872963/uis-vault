@@ -499,6 +499,14 @@ local Templates = {
 		Callback = function() end,
 		Changed = function() end,
 	},
+	ToggleButton = {
+		Icon = "menu",
+		Pos = "Right",
+		Round = false,
+		Offset = 6,
+
+		Callback = function() end,
+	},
 	Link = {
 		Mode = "Float",
 		Modes = { "Float", "Side" },
@@ -1714,29 +1722,33 @@ function Library:AddDraggableButton(Text: string, Func, ExcludeScaling: boolean?
 	return Table
 end
 
-function Library:AddDraggableIconButton(Icon: string, Func, ExcludeScaling: boolean?)
+function Library:AddDraggableIconButton(Size: number,Icon: string, Func, ExcludeScaling: boolean?, ExcludeCornering: boolean?)
 	local Table = {}
 
 	local Button = New("TextButton", {
 		BackgroundColor3 = "BackgroundColor",
 		Position = UDim2.fromOffset(6, 6),
-		Size = UDim2.fromOffset(32, 32),
+		Size = UDim2.fromOffset(Size, Size) or UDim2.fromOffset(32, 32),
 		Text = "",
 		TextSize = 16,
 		ZIndex = 10,
 		Parent = ScreenGui,
 	})
-	table.insert(
-		Library.Corners, 
-		New("UICorner", {
-			CornerRadius = UDim.new(0, Library.CornerRadius),
-			Parent = Button,
-		})
-	)
+	
 	if not ExcludeScaling then
 		table.insert(
 			Library.Scales,
 			New("UIScale", {
+				Parent = Button,
+			})
+		)
+	end
+	
+	if not ExcludeCornering then 
+		table.insert(
+			Library.Corners, 
+			New("UICorner", {
+				CornerRadius = UDim.new(0, Library.CornerRadius),
 				Parent = Button,
 			})
 		)
@@ -1750,13 +1762,16 @@ function Library:AddDraggableIconButton(Icon: string, Func, ExcludeScaling: bool
 		ZIndex = 11,
 		Parent = Button
 	})
-	table.insert(
-		Library.Corners, 
-		New("UICorner", {
-			CornerRadius = UDim.new(0, Library.CornerRadius / 2),
-			Parent = ButtonImage,
-		})
-	)
+	
+	if not ExcludeCornering then 
+		table.insert(
+			Library.Corners, 
+			New("UICorner", {
+				CornerRadius = UDim.new(0, Library.CornerRadius / 2),
+				Parent = ButtonImage,
+			})
+		)
+	end
 
 	Button.MouseButton1Click:Connect(function()
 		Library:SafeCallback(Func, Table)
@@ -3350,14 +3365,36 @@ do
 
 		if Info.Mode == "Side" then
 			local PanelSide = Info.Side == "Left" and "Left" or "Right"
+			local AnchorFrame = Library.MainFrame
 
 			PanelHolder = New("Frame", {
 				BackgroundColor3 = "BackgroundColor",
-				Size = UDim2.new(0, Width, 1, 0),
+				Size = UDim2.fromOffset(Width, AnchorFrame and AnchorFrame.AbsoluteSize.Y or Height),
+				Position = AnchorFrame and UDim2.fromOffset(AnchorFrame.AbsolutePosition.X, AnchorFrame.AbsolutePosition.Y) or UDim2.fromOffset(0, 0),
 				ZIndex = 100,
 				Visible = false,
-				Parent = PanelRoot,
+				Parent = Library.ScreenGui,
 			})
+
+			if AnchorFrame then
+				local function SyncToWindow()
+					local AbsPos = AnchorFrame.AbsolutePosition
+					local AbsSize = AnchorFrame.AbsoluteSize
+
+					PanelHolder.Size = UDim2.fromOffset(Width, AbsSize.Y)
+
+					local BaseX = PanelSide == "Left" and AbsPos.X or (AbsPos.X + AbsSize.X - Width)
+					if Opened then
+						PanelHolder.Position = UDim2.fromOffset(BaseX, AbsPos.Y)
+					else
+						local ClosedX = PanelSide == "Left" and (AbsPos.X - Width) or (AbsPos.X + AbsSize.X)
+						PanelHolder.Position = UDim2.fromOffset(ClosedX, AbsPos.Y)
+					end
+				end
+
+				Library:GiveSignal(AnchorFrame:GetPropertyChangedSignal("AbsolutePosition"):Connect(SyncToWindow))
+				Library:GiveSignal(AnchorFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(SyncToWindow))
+			end
 			table.insert(
 				Library.Corners,
 				New("UICorner", {
@@ -3423,20 +3460,38 @@ do
 				Parent = PanelContainer,
 			})
 
-			local ClosedPos = PanelSide == "Left" and UDim2.new(0, -Width, 0, 0) or UDim2.new(1, 0, 0, 0)
-			local OpenPos = PanelSide == "Left" and UDim2.new(0, 0, 0, 0) or UDim2.new(1, -Width, 0, 0)
-			PanelHolder.Position = ClosedPos
+			local function ComputeOpenPos()
+				if AnchorFrame then
+					local AbsPos = AnchorFrame.AbsolutePosition
+					local AbsSize = AnchorFrame.AbsoluteSize
+					local X = PanelSide == "Left" and AbsPos.X or (AbsPos.X + AbsSize.X - Width)
+					return UDim2.fromOffset(X, AbsPos.Y)
+				end
+				return PanelSide == "Left" and UDim2.new(0, 0, 0, 0) or UDim2.new(1, -Width, 0, 0)
+			end
+
+			local function ComputeClosedPos()
+				if AnchorFrame then
+					local AbsPos = AnchorFrame.AbsolutePosition
+					local AbsSize = AnchorFrame.AbsoluteSize
+					local X = PanelSide == "Left" and (AbsPos.X - Width) or (AbsPos.X + AbsSize.X)
+					return UDim2.fromOffset(X, AbsPos.Y)
+				end
+				return PanelSide == "Left" and UDim2.new(0, -Width, 0, 0) or UDim2.new(1, 0, 0, 0)
+			end
+
+			PanelHolder.Position = ComputeClosedPos()
 			PanelHolder.Visible = false
 
 			Open = function()
 				Opened = true
 				PanelHolder.Visible = true
-				TweenService:Create(PanelHolder, Library.TweenInfo, { Position = OpenPos }):Play()
+				TweenService:Create(PanelHolder, Library.TweenInfo, { Position = ComputeOpenPos() }):Play()
 			end
 
 			Close = function()
 				Opened = false
-				TweenService:Create(PanelHolder, Library.TweenInfo, { Position = ClosedPos }):Play()
+				TweenService:Create(PanelHolder, Library.TweenInfo, { Position = ComputeClosedPos() }):Play()
 				task.delay(Library.TweenInfo.Time, function()
 					if not Opened then
 						PanelHolder.Visible = false
@@ -7429,6 +7484,44 @@ function Library:CreateWindow(WindowInfo)
 
 	function Window:SetGlow(State: boolean)
 		return Library:SetGlow(State)
+	end
+
+	function Window:AddToggleButton(Info)
+		Info = Library:Validate(Info, Templates.ToggleButton)
+
+		local Button = Library:AddDraggableIconButton(Info.Size, Info.Icon, function()
+			Library:Toggle()
+			Library:SafeCallback(Info.Callback)
+		end, true, true)
+		
+		if Info.Round then
+			New("UICorner", {
+				CornerRadius = UDim.new(1, 0),
+				Parent = Button.Button,
+			})
+		end
+
+		local Offset = Info.Offset or 6
+		local Pos = Info.Pos
+
+		if Pos == "Right" then
+			Button.Button.AnchorPoint = Vector2.new(1, 0)
+			Button.Button.Position = UDim2.new(1, -Offset, 0, Offset)
+		elseif Pos == "Bottom" then
+			Button.Button.AnchorPoint = Vector2.new(0, 1)
+			Button.Button.Position = UDim2.new(0, Offset, 1, -Offset)
+		elseif Pos == "Top" then
+			Button.Button.AnchorPoint = Vector2.new(0, 0)
+			Button.Button.Position = UDim2.fromOffset(Offset, Offset)
+		elseif Pos == "Middle Top" then
+			Button.Button.AnchorPoint = Vector2.new(0.5, 0)
+			Button.Button.Position = UDim2.new(0.5, 0, 0, Offset)
+		else
+			Button.Button.AnchorPoint = Vector2.new(0, 0)
+			Button.Button.Position = UDim2.fromOffset(Offset, Offset)
+		end
+
+		return Button
 	end
 
 	function Window:SetFooter(footer: string)
