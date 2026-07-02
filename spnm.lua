@@ -150,12 +150,14 @@ function SkeetLib:CreateTab(name)
 	tabBtn.TextSize = 13
 	tabBtn.Font = Enum.Font.Code
 	tabBtn.Parent = self.TabsContainer
+
 	local page = Instance.new("Frame")
 	page.Name = name .. "Page"
 	page.Size = UDim2.new(1, 0, 1, 0)
 	page.BackgroundTransparency = 1
 	page.Visible = false
 	page.Parent = self.PageContainer
+
 	local leftCol = Instance.new("ScrollingFrame")
 	leftCol.Name = "LeftCol"
 	leftCol.Size = UDim2.new(0.32, 0, 1, 0)
@@ -169,6 +171,7 @@ function SkeetLib:CreateTab(name)
 	local leftLayout = Instance.new("UIListLayout")
 	leftLayout.Padding = UDim.new(0, 15)
 	leftLayout.Parent = leftCol
+
 	local midCol = Instance.new("ScrollingFrame")
 	midCol.Name = "MidCol"
 	midCol.Size = UDim2.new(0.32, 0, 1, 0)
@@ -183,6 +186,7 @@ function SkeetLib:CreateTab(name)
 	local midLayout = Instance.new("UIListLayout")
 	midLayout.Padding = UDim.new(0, 15)
 	midLayout.Parent = midCol
+
 	local rightCol = Instance.new("ScrollingFrame")
 	rightCol.Name = "RightCol"
 	rightCol.Size = UDim2.new(0.32, 0, 1, 0)
@@ -197,7 +201,7 @@ function SkeetLib:CreateTab(name)
 	local rightLayout = Instance.new("UIListLayout")
 	rightLayout.Padding = UDim.new(0, 15)
 	rightLayout.Parent = rightCol
-	-- Apply column paddings to fix clipping
+
 	local function addColumnPadding(column)
 		local padding = Instance.new("UIPadding")
 		padding.PaddingTop = UDim.new(0, 10)
@@ -209,6 +213,7 @@ function SkeetLib:CreateTab(name)
 	addColumnPadding(leftCol)
 	addColumnPadding(midCol)
 	addColumnPadding(rightCol)
+
 	local function selectTab()
 		for _, t in ipairs(windowSelf.Tabs) do
 			t.Button.TextColor3 = Theme.TextDark
@@ -217,19 +222,24 @@ function SkeetLib:CreateTab(name)
 		tabBtn.TextColor3 = Theme.Accent
 		page.Visible = true
 	end
+
 	tabBtn.MouseButton1Click:Connect(selectTab)
+
 	if #windowSelf.Tabs == 0 then
 		selectTab()
 	end
+
 	local tabData = {
 		Button = tabBtn,
 		Page = page,
 		Columns = {Left = leftCol, Middle = midCol, Right = rightCol}
 	}
 	table.insert(windowSelf.Tabs, tabData)
+
 	local tabSelf = {}
 	function tabSelf:CreateGroupbox(title, column)
 		local col = tabData.Columns[column or "Left"]
+
 		local groupbox = Instance.new("Frame")
 		groupbox.Name = title .. "Groupbox"
 		groupbox.Size = UDim2.new(1, 0, 0, 40)
@@ -237,7 +247,7 @@ function SkeetLib:CreateTab(name)
 		groupbox.BorderColor3 = Theme.BorderInner
 		groupbox.BorderSizePixel = 1
 		groupbox.Parent = col
-		-- Title aligned inside border
+
 		local titleLBL = Instance.new("TextLabel")
 		titleLBL.Position = UDim2.new(0, 10, 0, -8)
 		titleLBL.Size = UDim2.new(0, 0, 0, 16)
@@ -250,24 +260,28 @@ function SkeetLib:CreateTab(name)
 		titleLBL.BackgroundColor3 = Theme.Bg
 		titleLBL.BorderSizePixel = 0
 		titleLBL.Parent = groupbox
+
 		local elementsContainer = Instance.new("Frame")
 		elementsContainer.Name = "ElementsContainer"
 		elementsContainer.Size = UDim2.new(1, -20, 1, -20)
 		elementsContainer.Position = UDim2.new(0, 10, 0, 12)
 		elementsContainer.BackgroundTransparency = 1
 		elementsContainer.Parent = groupbox
+
 		local elementLayout = Instance.new("UIListLayout")
 		elementLayout.Padding = UDim.new(0, 8)
 		elementLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		elementLayout.Parent = elementsContainer
+
 		elementLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 			groupbox.Size = UDim2.new(1, 0, 0, elementLayout.AbsoluteContentSize.Y + 25)
 		end)
+
 		local groupSelf = {}
 
 		function groupSelf:CreateToggle(flag, config)
 			local state = config.Default or false
-
+			
 			local toggleBtn = Instance.new("TextButton")
 			toggleBtn.Name = flag .. "_Toggle"
 			toggleBtn.Size = UDim2.new(1, 0, 0, 18)
@@ -307,7 +321,7 @@ function SkeetLib:CreateTab(name)
 				SetValue = function(self, val) trigger(val) end,
 				SetVisible = function(self, visible) toggleBtn.Visible = visible end
 			}
-
+			
 			function elementApi:KeyBind(defaultKey, bindCallback)
 				local currentKey = defaultKey
 				local listening = false
@@ -364,7 +378,7 @@ function SkeetLib:CreateTab(name)
 			local min = config.Min or 0
 			local max = config.Max or 100
 			local val = config.Default or min
-
+			
 			local sliderFrame = Instance.new("Frame")
 			sliderFrame.Name = flag .. "_Slider"
 			sliderFrame.Size = UDim2.new(1, 0, 0, 30)
@@ -425,7 +439,7 @@ function SkeetLib:CreateTab(name)
 					updateFromInput(input)
 				end
 			end)
-
+			
 			slideBar.InputEnded:Connect(function(input)
 				if input.UserInputType == Enum.UserInputType.MouseButton1 then
 					sliding = false
@@ -508,23 +522,33 @@ function SkeetLib:CreateTab(name)
 				if config.Callback then config.Callback(option) end
 			end
 
-			for _, option in ipairs(options) do
-				local optBtn = Instance.new("TextButton")
-				optBtn.Size = UDim2.new(1, 0, 0, 18)
-				optBtn.BackgroundColor3 = Theme.Bg
-				optBtn.BorderSizePixel = 0
-				optBtn.Text = "  " .. tostring(option)
-				optBtn.TextColor3 = option == currentSelection and Theme.Accent or Theme.TextDark
-				optBtn.TextSize = 11
-				optBtn.Font = Enum.Font.Code
-				optBtn.TextXAlignment = Enum.TextXAlignment.Left
-				optBtn.ZIndex = 6
-				optBtn.Parent = optionList
+			local function updateOptions(newOptions)
+				options = newOptions
+				for _, child in ipairs(optionList:GetChildren()) do
+					if child:IsA("TextButton") then child:Destroy() end
+				end
+				optionList.Size = UDim2.new(1, 0, 0, #options * 18)
+				
+				for _, option in ipairs(options) do
+					local optBtn = Instance.new("TextButton")
+					optBtn.Size = UDim2.new(1, 0, 0, 18)
+					optBtn.BackgroundColor3 = Theme.Bg
+					optBtn.BorderSizePixel = 0
+					optBtn.Text = "  " .. tostring(option)
+					optBtn.TextColor3 = option == currentSelection and Theme.Accent or Theme.TextDark
+					optBtn.TextSize = 11
+					optBtn.Font = Enum.Font.Code
+					optBtn.TextXAlignment = Enum.TextXAlignment.Left
+					optBtn.ZIndex = 6
+					optBtn.Parent = optionList
 
-				optBtn.MouseButton1Click:Connect(function()
-					selectOption(option)
-				end)
+					optBtn.MouseButton1Click:Connect(function()
+						selectOption(option)
+					end)
+				end
 			end
+
+			updateOptions(options)
 
 			selectorBtn.MouseButton1Click:Connect(function()
 				optionList.Visible = not optionList.Visible
@@ -533,7 +557,62 @@ function SkeetLib:CreateTab(name)
 			local elementApi = {
 				GetValue = function() return currentSelection end,
 				SetValue = function(self, option) selectOption(option) end,
+				Update = function(self, newOptions) updateOptions(newOptions) end,
 				SetVisible = function(self, visible) dropdownFrame.Visible = visible end
+			}
+			windowSelf.Options[flag] = elementApi
+			return elementApi
+		end
+
+		function groupSelf:CreateTextbox(flag, config)
+			local currentText = config.Default or ""
+			
+			local boxFrame = Instance.new("Frame")
+			boxFrame.Name = flag .. "_Textbox"
+			boxFrame.Size = UDim2.new(1, 0, 0, 36)
+			boxFrame.BackgroundTransparency = 1
+			boxFrame.Parent = elementsContainer
+
+			local label = Instance.new("TextLabel")
+			label.Size = UDim2.new(1, 0, 0, 14)
+			label.BackgroundTransparency = 1
+			label.Text = config.Title or flag
+			label.TextColor3 = Theme.TextDark
+			label.TextSize = 11
+			label.Font = Enum.Font.Code
+			label.TextXAlignment = Enum.TextXAlignment.Left
+			label.Parent = boxFrame
+
+			local input = Instance.new("TextBox")
+			input.Size = UDim2.new(1, 0, 0, 18)
+			input.Position = UDim2.new(0, 0, 0, 16)
+			input.BackgroundColor3 = Theme.ElementBg
+			input.BorderColor3 = Theme.BorderInner
+			input.Text = currentText
+			input.PlaceholderText = config.Placeholder or "Type here..."
+			input.TextColor3 = Theme.Text
+			input.TextSize = 11
+			input.Font = Enum.Font.Code
+			input.TextXAlignment = Enum.TextXAlignment.Left
+			input.ClearTextOnFocus = false
+			input.Parent = boxFrame
+
+			local function updateText(txt)
+				currentText = txt
+				if config.Callback then config.Callback(txt) end
+			end
+
+			input.FocusLost:Connect(function(enterPressed)
+				updateText(input.Text)
+			end)
+
+			local elementApi = {
+				GetValue = function() return currentText end,
+				SetValue = function(self, txt)
+					input.Text = txt
+					updateText(txt)
+				end,
+				SetVisible = function(self, visible) boxFrame.Visible = visible end
 			}
 			windowSelf.Options[flag] = elementApi
 			return elementApi
@@ -767,7 +846,7 @@ function SkeetLib:CreateTab(name)
 				end,
 				SetVisible = function(self, visible) charFrame.Visible = visible end
 			}
-
+			
 			windowSelf.Options[flag] = elementApi
 			return elementApi
 		end
