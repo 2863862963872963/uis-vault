@@ -497,14 +497,17 @@ function SkeetLib:CreateTab(name)
 			selectorBtn.TextXAlignment = Enum.TextXAlignment.Left
 			selectorBtn.Parent = dropdownFrame
 
-			local optionList = Instance.new("Frame")
-			optionList.Size = UDim2.new(1, 0, 0, #options * 18)
+			local optionList = Instance.new("ScrollingFrame")
+			optionList.Size = UDim2.new(1, 0, 0, math.min(#options * 18, 150))
 			optionList.Position = UDim2.new(0, 0, 1, 1)
 			optionList.BackgroundColor3 = Theme.Bg
 			optionList.BorderColor3 = Theme.BorderInner
 			optionList.BorderSizePixel = 1
 			optionList.Visible = false
 			optionList.ZIndex = 5
+			optionList.ScrollBarThickness = 2
+			optionList.ScrollBarImageColor3 = Theme.Accent
+			optionList.CanvasSize = UDim2.new(0, 0, 0, #options * 18)
 			optionList.Parent = selectorBtn
 
 			local listLayout = Instance.new("UIListLayout")
@@ -527,7 +530,8 @@ function SkeetLib:CreateTab(name)
 				for _, child in ipairs(optionList:GetChildren()) do
 					if child:IsA("TextButton") then child:Destroy() end
 				end
-				optionList.Size = UDim2.new(1, 0, 0, #options * 18)
+				optionList.Size = UDim2.new(1, 0, 0, math.min(#options * 18, 150))
+				optionList.CanvasSize = UDim2.new(0, 0, 0, #options * 18)
 				
 				for _, option in ipairs(options) do
 					local optBtn = Instance.new("TextButton")
@@ -557,6 +561,153 @@ function SkeetLib:CreateTab(name)
 			local elementApi = {
 				GetValue = function() return currentSelection end,
 				SetValue = function(self, option) selectOption(option) end,
+				Update = function(self, newOptions) updateOptions(newOptions) end,
+				SetVisible = function(self, visible) dropdownFrame.Visible = visible end
+			}
+			windowSelf.Options[flag] = elementApi
+			return elementApi
+		end
+
+		function groupSelf:CreateMultiDropdown(flag, config)
+			local options = config.Values or config.Options or {"none"}
+			local selections = {}
+			for _, option in ipairs(options) do
+				selections[option] = false
+			end
+			if config.Default then
+				for _, option in ipairs(config.Default) do
+					selections[option] = true
+				end
+			end
+
+			local dropdownFrame = Instance.new("Frame")
+			dropdownFrame.Name = flag .. "_MultiDropdown"
+			dropdownFrame.Size = UDim2.new(1, 0, 0, 36)
+			dropdownFrame.BackgroundTransparency = 1
+			dropdownFrame.Parent = elementsContainer
+
+			local label = Instance.new("TextLabel")
+			label.Size = UDim2.new(1, 0, 0, 14)
+			label.BackgroundTransparency = 1
+			label.Text = config.Title or flag
+			label.TextColor3 = Theme.TextDark
+			label.TextSize = 11
+			label.Font = Enum.Font.Code
+			label.TextXAlignment = Enum.TextXAlignment.Left
+			label.Parent = dropdownFrame
+
+			local selectorBtn = Instance.new("TextButton")
+			selectorBtn.Size = UDim2.new(1, 0, 0, 18)
+			selectorBtn.Position = UDim2.new(0, 0, 0, 16)
+			selectorBtn.BackgroundColor3 = Theme.ElementBg
+			selectorBtn.BorderColor3 = Theme.BorderInner
+			selectorBtn.Text = "  ..."
+			selectorBtn.TextColor3 = Theme.Text
+			selectorBtn.TextSize = 11
+			selectorBtn.Font = Enum.Font.Code
+			selectorBtn.TextXAlignment = Enum.TextXAlignment.Left
+			selectorBtn.Parent = dropdownFrame
+
+			local optionList = Instance.new("ScrollingFrame")
+			optionList.Size = UDim2.new(1, 0, 0, math.min(#options * 18, 150))
+			optionList.Position = UDim2.new(0, 0, 1, 1)
+			optionList.BackgroundColor3 = Theme.Bg
+			optionList.BorderColor3 = Theme.BorderInner
+			optionList.BorderSizePixel = 1
+			optionList.Visible = false
+			optionList.ZIndex = 5
+			optionList.ScrollBarThickness = 2
+			optionList.ScrollBarImageColor3 = Theme.Accent
+			optionList.CanvasSize = UDim2.new(0, 0, 0, #options * 18)
+			optionList.Parent = selectorBtn
+
+			local listLayout = Instance.new("UIListLayout")
+			listLayout.Parent = optionList
+
+			local function getSelectedList()
+				local list = {}
+				for _, option in ipairs(options) do
+					if selections[option] then
+						table.insert(list, option)
+					end
+				end
+				return list
+			end
+
+			local function updateSelectorText()
+				local active = getSelectedList()
+				if #active == 0 then
+					selectorBtn.Text = "  none"
+				else
+					selectorBtn.Text = "  " .. table.concat(active, ", ")
+				end
+			end
+
+			local function selectOption(option, forceState)
+				if forceState ~= nil then
+					selections[option] = forceState
+				else
+					selections[option] = not selections[option]
+				end
+				updateSelectorText()
+
+				for _, child in ipairs(optionList:GetChildren()) do
+					if child:IsA("TextButton") and child.Text == "  " .. tostring(option) then
+						child.TextColor3 = selections[option] and Theme.Accent or Theme.TextDark
+					end
+				end
+				
+				if config.Callback then config.Callback(getSelectedList()) end
+			end
+
+			local function updateOptions(newOptions)
+				options = newOptions
+				selections = {}
+				for _, option in ipairs(options) do
+					selections[option] = false
+				end
+				for _, child in ipairs(optionList:GetChildren()) do
+					if child:IsA("TextButton") then child:Destroy() end
+				end
+				optionList.Size = UDim2.new(1, 0, 0, math.min(#options * 18, 150))
+				optionList.CanvasSize = UDim2.new(0, 0, 0, #options * 18)
+				
+				for _, option in ipairs(options) do
+					local optBtn = Instance.new("TextButton")
+					optBtn.Size = UDim2.new(1, 0, 0, 18)
+					optBtn.BackgroundColor3 = Theme.Bg
+					optBtn.BorderSizePixel = 0
+					optBtn.Text = "  " .. tostring(option)
+					optBtn.TextColor3 = selections[option] and Theme.Accent or Theme.TextDark
+					optBtn.TextSize = 11
+					optBtn.Font = Enum.Font.Code
+					optBtn.TextXAlignment = Enum.TextXAlignment.Left
+					optBtn.ZIndex = 6
+					optBtn.Parent = optionList
+
+					optBtn.MouseButton1Click:Connect(function()
+						selectOption(option)
+					end)
+				end
+				updateSelectorText()
+			end
+
+			updateOptions(options)
+
+			selectorBtn.MouseButton1Click:Connect(function()
+				optionList.Visible = not optionList.Visible
+			end)
+
+			local elementApi = {
+				GetValue = function() return getSelectedList() end,
+				SetValue = function(self, tbl)
+					for _, opt in ipairs(options) do
+						selections[opt] = table.find(tbl, opt) and true or false
+					end
+					for _, opt in ipairs(options) do
+						selectOption(opt, selections[opt])
+					end
+				end,
 				Update = function(self, newOptions) updateOptions(newOptions) end,
 				SetVisible = function(self, visible) dropdownFrame.Visible = visible end
 			}
