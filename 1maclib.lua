@@ -5468,12 +5468,13 @@ function MacLib:Window(Settings)
 
 				UiSection:Slider({
 					Name = "Set DPI",
-					Default = 100,
-					Minimum = 50,
-					Maximum = 100,
-					DisplayMethod = "Percent",
+				    Default = 1,
+				    Minimum = 0,
+				    Maximum = 1,
+				    DisplayMethod = "Value",
+				    Precision = 2,
 					Callback = function(Value)
-						WindowFunctions:SetScale(Value / 100)
+						WindowFunctions:SetScale(Value)
 					end,
 				}, "DPISlider")
 
