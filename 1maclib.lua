@@ -1,5 +1,6 @@
 local MacLib = { 
 	Options = {}, 
+	CurrentTheme = {},
 	Folder = "Maclib", 
 	GetService = function(service)
 		return cloneref and cloneref(game:GetService(service)) or game:GetService(service)
@@ -45,6 +46,53 @@ local assets = {
 	sliderhead = "rbxassetid://18772834246",
 }
 
+local Themes = {
+	Dark = {
+		BaseBackground = Color3.fromRGB(15, 15, 15),
+		SidebarBackground = Color3.fromRGB(20, 20, 20),
+		DividerColor = Color3.fromRGB(255, 255, 255),
+		DividerTransparency = 0.9,
+
+		TextPrimary = Color3.fromRGB(255, 255, 255),
+		TextPrimaryTransparency = 0.1,
+		TextMuted = Color3.fromRGB(255, 255, 255),
+		TextMutedTransparency = 0.7,
+
+		StrokeColor = Color3.fromRGB(255, 255, 255),
+		StrokeTransparency = 0.9,
+
+		ElementBackground = Color3.fromRGB(255, 255, 255),
+		ElementBackgroundTransparency = 0.98,
+
+		ToggleOff = Color3.fromRGB(87, 86, 86),
+		GlobalSettingsBackground = Color3.fromRGB(15, 15, 15)
+	},
+	Light = {
+		BaseBackground = Color3.fromRGB(240, 240, 240),
+		SidebarBackground = Color3.fromRGB(230, 230, 230),
+		DividerColor = Color3.fromRGB(0, 0, 0),
+		DividerTransparency = 0.9,
+
+		TextPrimary = Color3.fromRGB(20, 20, 20),
+		TextPrimaryTransparency = 0,
+		TextMuted = Color3.fromRGB(80, 80, 80),
+		TextMutedTransparency = 0.4,
+
+		StrokeColor = Color3.fromRGB(0, 0, 0),
+		StrokeTransparency = 0.9,
+
+		ElementBackground = Color3.fromRGB(0, 0, 0),
+		ElementBackgroundTransparency = 0.95,
+
+		ToggleOff = Color3.fromRGB(180, 180, 180),
+		GlobalSettingsBackground = Color3.fromRGB(240, 240, 240)
+	}
+}
+
+-- Set initial default state
+MacLib.CurrentTheme = Themes.Light
+local ThemeRegistry = {} 
+
 --// Functions
 local function GetGui()
 	local newGui = Instance.new("ScreenGui")
@@ -60,6 +108,44 @@ local function GetGui()
 
 	newGui.Parent = parent
 	return newGui
+end
+
+local function RegisterThemeElement(instance, property, themeKey, transparencyKey)
+	table.insert(ThemeRegistry, {
+		Instance = instance,
+		Property = property,
+		ThemeKey = themeKey,
+		TransparencyKey = transparencyKey
+	})
+
+	-- Apply the current color immediately
+	if MacLib.CurrentTheme[themeKey] then
+		instance[property] = MacLib.CurrentTheme[themeKey]
+	end
+
+	-- Apply transparency safely
+	if transparencyKey and MacLib.CurrentTheme[transparencyKey] then
+		local transparencyValue = MacLib.CurrentTheme[transparencyKey]
+
+		if instance:IsA("UIStroke") then
+			instance.Transparency = transparencyValue
+		elseif instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") then
+			if property == "TextColor3" then
+				instance.TextTransparency = transparencyValue
+			else
+				instance.BackgroundTransparency = transparencyValue
+			end
+		elseif instance:IsA("ImageLabel") or instance:IsA("ImageButton") then
+			if property == "ImageColor3" then
+				instance.ImageTransparency = transparencyValue
+			else
+				instance.BackgroundTransparency = transparencyValue
+			end
+		else
+			-- Fallback for standard frames
+			instance.BackgroundTransparency = transparencyValue
+		end
+	end
 end
 
 local function Tween(instance, tweeninfo, propertytable)
@@ -145,6 +231,26 @@ local function CreateElementIcon(parent, Settings, size, leftOffset, vertAnchor)
 end
 
 --// Library Functions
+
+function MacLib:SetTheme(themeName)
+	local targetTheme = Themes[themeName]
+	if not targetTheme then return warn("Theme '" .. tostring(themeName) .. "' does not exist!") end
+
+	MacLib.CurrentTheme = targetTheme
+
+	for _, registration in ipairs(ThemeRegistry) do
+		local inst = registration.Instance
+		if inst and inst.Parent then
+			local targetColor = targetTheme[registration.ThemeKey]
+			if targetColor then
+				Tween(inst, TweenInfo.new(0.25, Enum.EasingStyle.Sine), { [registration.Property] = targetColor }):Play()
+			end
+		else
+			table.remove(ThemeRegistry, table.find(ThemeRegistry, registration))
+		end
+	end
+end
+
 function MacLib:Window(Settings)
 	local WindowFunctions = {Settings = Settings}
 	if Settings.AcrylicBlur ~= nil then
@@ -184,8 +290,8 @@ function MacLib:Window(Settings)
 	local base = Instance.new("Frame")
 	base.Name = "Base"
 	base.AnchorPoint = Vector2.new(0.5, 0.5)
-	base.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 	base.BackgroundTransparency = Settings.AcrylicBlur and 0.05 or 0
+	RegisterThemeElement(base, "BackgroundColor3", "BaseBackground")
 	base.BorderColor3 = Color3.fromRGB(0, 0, 0)
 	base.BorderSizePixel = 0
 	base.Position = UDim2.fromScale(0.5, 0.5)
@@ -203,8 +309,7 @@ function MacLib:Window(Settings)
 	local baseUIStroke = Instance.new("UIStroke")
 	baseUIStroke.Name = "BaseUIStroke"
 	baseUIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	baseUIStroke.Color = Color3.fromRGB(255, 255, 255)
-	baseUIStroke.Transparency = 0.9
+	RegisterThemeElement(baseUIStroke, "Color", "StrokeColor", "StrokeTransparency")
 	baseUIStroke.Parent = base
 
 	local sidebar = Instance.new("Frame")
@@ -219,8 +324,7 @@ function MacLib:Window(Settings)
 	local divider = Instance.new("Frame")
 	divider.Name = "Divider"
 	divider.AnchorPoint = Vector2.new(1, 0)
-	divider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	divider.BackgroundTransparency = 0.9
+	RegisterThemeElement(divider, "BackgroundColor3", "DividerColor", "DividerTransparency")
 	divider.BorderColor3 = Color3.fromRGB(0, 0, 0)
 	divider.BorderSizePixel = 0
 	divider.Position = UDim2.fromScale(1, 0)
@@ -471,7 +575,7 @@ function MacLib:Window(Settings)
 		Enum.FontStyle.Normal
 	)
 	title.Text = Settings.Title
-	title.TextColor3 = Color3.fromRGB(255, 255, 255)
+	RegisterThemeElement(title, "TextColor3", "TextPrimary", "TextPrimaryTransparency")
 	title.RichText = true
 	title.TextSize = 18
 	title.TextTransparency = 0.1
@@ -496,7 +600,7 @@ function MacLib:Window(Settings)
 	subtitle.RichText = true
 	subtitle.Text = Settings.Subtitle
 	subtitle.RichText = true
-	subtitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+	RegisterThemeElement(subtitle, "TextColor3", "TextMuted", "TextMutedTransparency")
 	subtitle.TextSize = 12
 	subtitle.TextTransparency = 0.7
 	subtitle.TextTruncate = Enum.TextTruncate.SplitWord
@@ -2019,7 +2123,9 @@ function MacLib:Window(Settings)
 						toggle:Destroy()
 					end
 
-					function ToggleFunctions:Link()
+					function ToggleFunctions:Link(config)
+						config = config or {}
+						local isSidePanel = config.Type == 2
 						local LinkFunctions = {}
 
 						-- Reveal the link button now that a panel has been registered
@@ -2040,21 +2146,29 @@ function MacLib:Window(Settings)
 						linkPanelUICorner.CornerRadius = UDim.new(0, 10)
 						linkPanelUICorner.Parent = linkPanel
 
-						-- ── Inner prompt card ─────────────────────────────────────────
+						-- ── Inner prompt card / Side Panel ────────────────────────────
 						local prompt = Instance.new("Frame")
 						prompt.Name = "Prompt"
-						prompt.AnchorPoint = Vector2.new(0.5, 0.5)
-						prompt.AutomaticSize = Enum.AutomaticSize.Y
 						prompt.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 						prompt.BorderColor3 = Color3.fromRGB(0, 0, 0)
 						prompt.BorderSizePixel = 0
-						prompt.Position = UDim2.fromScale(0.5, 0.5)
-						prompt.Size = UDim2.fromOffset(340, 0)
 						prompt.ClipsDescendants = true
+
+						if isSidePanel then
+							prompt.AnchorPoint = Vector2.new(1, 0)
+							prompt.Position = UDim2.new(1, 340, 0, 0) -- Starts off-screen to the right
+							prompt.Size = UDim2.new(0, 340, 1, 0)     -- Takes full vertical height
+							prompt.AutomaticSize = Enum.AutomaticSize.None
+						else
+							prompt.AnchorPoint = Vector2.new(0.5, 0.5)
+							prompt.Position = UDim2.fromScale(0.5, 0.5)
+							prompt.Size = UDim2.fromOffset(340, 0)
+							prompt.AutomaticSize = Enum.AutomaticSize.Y
+						end
 
 						local promptUIScale = Instance.new("UIScale")
 						promptUIScale.Name = "PromptUIScale"
-						promptUIScale.Scale = 0.95
+						promptUIScale.Scale = isSidePanel and 1 or 0.95
 						promptUIScale.Parent = prompt
 
 						local promptUIStroke = Instance.new("UIStroke")
@@ -2109,7 +2223,7 @@ function MacLib:Window(Settings)
 							Enum.FontWeight.SemiBold,
 							Enum.FontStyle.Normal
 						)
-						headerTitle.Text = ToggleFunctions.Settings.Name
+						headerTitle.Text = config.Title or ToggleFunctions.Settings.Name
 						headerTitle.RichText = true
 						headerTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 						headerTitle.TextSize = 15
@@ -2136,7 +2250,7 @@ function MacLib:Window(Settings)
 						closeBtn.BackgroundTransparency = 1
 						closeBtn.BorderSizePixel = 0
 						closeBtn.Position = UDim2.fromScale(1, 0.5)
-						closeBtn.Size = UDim2.fromOffset(16, 16) -- adjust to fit your header
+						closeBtn.Size = UDim2.fromOffset(16, 16)
 						closeBtn.Parent = headerBar
 
 						headerBar.Parent = prompt
@@ -2159,7 +2273,7 @@ function MacLib:Window(Settings)
 						contentArea.BorderColor3 = Color3.fromRGB(0, 0, 0)
 						contentArea.BorderSizePixel = 0
 						contentArea.LayoutOrder = 2
-						contentArea.Size = UDim2.fromOffset(340, 300)
+						contentArea.Size = isSidePanel and UDim2.new(1, 0, 1, -45) or UDim2.fromOffset(340, 300)
 						contentArea.ClipsDescendants = true
 						contentArea.Parent = prompt
 
@@ -2212,17 +2326,30 @@ function MacLib:Window(Settings)
 
 						local function transition(isIn)
 							local canvas = makeLinkCanvas()
-							local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Sine)
+							local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
 							local canvasTween = Tween(canvas, tweenInfo, { GroupTransparency = isIn and 0 or 1 })
-							local scaleTween = Tween(promptUIScale, tweenInfo, { Scale = isIn and 1 or 0.95 })
+
+							-- Handle sliding positions vs centering scales
+							local targetPos
+							if isSidePanel then
+								targetPos = isIn and UDim2.new(1, 0, 0, 0) or UDim2.new(1, 340, 0, 0)
+							else
+								targetPos = UDim2.fromScale(0.5, 0.5)
+							end
+
+							local posTween = Tween(prompt, tweenInfo, { Position = targetPos })
+							local scaleTween = not isSidePanel and Tween(promptUIScale, tweenInfo, { Scale = isIn and 1 or 0.95 }) or nil
 
 							linkPanel.Visible = true
 							linkPanel.Parent = canvas
 							canvas.Visible = true
 							canvas.GroupTransparency = isIn and 1 or 0
+
 							canvasTween:Play()
-							scaleTween:Play()
-							canvasTween.Completed:Wait()
+							posTween:Play()
+							if scaleTween then scaleTween:Play() end
+							posTween.Completed:Wait()
 
 							if not isIn then
 								linkPanel.Visible = false
@@ -2246,10 +2373,10 @@ function MacLib:Window(Settings)
 
 						-- Close button
 						closeBtn.MouseEnter:Connect(function()
-							Tween(closeBtn, TweenInfo.new(0.15, Enum.EasingStyle.Sine), { TextTransparency = 0.1 }):Play()
+							Tween(closeBtn, TweenInfo.new(0.15, Enum.EasingStyle.Sine), { ImageTransparency = 0.2 }):Play()
 						end)
 						closeBtn.MouseLeave:Connect(function()
-							Tween(closeBtn, TweenInfo.new(0.15, Enum.EasingStyle.Sine), { TextTransparency = 0.5 }):Play()
+							Tween(closeBtn, TweenInfo.new(0.15, Enum.EasingStyle.Sine), { ImageTransparency = 0.5 }):Play()
 						end)
 						closeBtn.MouseButton1Click:Connect(function()
 							transition(false)
@@ -6707,7 +6834,7 @@ function MacLib:Demo()
 	})
 
 	local labeo = HomeSection:Label({ Text = "Version: 1.0.0  •  Made with MacLib" })
-	labeo:Link()
+	labeo:Link({Type = 1, Title = "sadadasd"})
 	
 	HomeSection:SubLabel({ Text = "Right-click opens the keybind menu. Press RightControl to toggle the window." })
 
@@ -6822,7 +6949,7 @@ function MacLib:Demo()
 		end,
 	}, "SpeedBoost")
 
-	local SpeedLink = SpeedToggle:Link()
+	local SpeedLink = SpeedToggle:Link({Type = 2, Title = "sadadasd"})
 
 	SpeedLink:Header({ Name = "Speed Settings" })
 
